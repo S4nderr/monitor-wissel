@@ -14,6 +14,6 @@ const brug = new PowerShellDdcBrug(scriptPad, streamDeck.logger);
 // Eén gebundelde meting per 5 s voor alle zichtbare knoppen.
 const meter = new Meter(brug, 5000);
 
-streamDeck.actions.registerAction(new WisselIngang(brug, meter));
+streamDeck.actions.registerAction(new WisselIngang(brug, meter, streamDeck.logger));
 streamDeck.logger.info(`Monitor-wissel start, ddc-script: ${scriptPad}`);
 streamDeck.connect();
