@@ -89,6 +89,26 @@ describe("Meter", () => {
     expect(goed).toHaveBeenCalledWith(5);
   });
 
+  it("een luisteraar die tijdens een lopende meting bijkomt, krijgt die meting niet", async () => {
+    let los!: (m: Map<string, Meting>) => void;
+    const antwoord = new Promise<Map<string, Meting>>((resolve) => {
+      los = resolve;
+    });
+    const leesIngangen = vi.fn(() => antwoord);
+    const meter = new Meter({ leesIngangen });
+    const oud = vi.fn();
+    meter.volg("ctx-oud", "hp", oud);
+    const lopend = meter.meetNu();
+    // Knop komt op terwijl de meting nog onderweg is.
+    const nieuw = vi.fn();
+    meter.volg("ctx-nieuw", "sam", nieuw);
+    los(new Map([["hp", 17]]));
+    await lopend;
+    expect(leesIngangen).toHaveBeenCalledWith(["hp"]);
+    expect(oud).toHaveBeenCalledWith(17);
+    expect(nieuw).not.toHaveBeenCalled();
+  });
+
   it("na een afgewezen meting werkt een volgende meting weer normaal", async () => {
     const leesIngangen = vi
       .fn()

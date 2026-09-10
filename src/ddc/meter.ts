@@ -37,7 +37,10 @@ export class Meter {
     if (this.bezig || this.volgers.size === 0) return;
     this.bezig = true;
     try {
-      const ids = [...new Set([...this.volgers.values()].map((v) => v.schermId))];
+      // Momentopname vóór de await: een knop die tijdens deze meting bijkomt hoort er nog niet bij
+      // en zou anders een null (= WERK) te zien krijgen die nooit voor hem gemeten is.
+      const volgers = [...this.volgers.values()];
+      const ids = [...new Set(volgers.map((v) => v.schermId))];
       // Een leesfout telt per ADR-0002 als WERK: elke ingang wordt dan null.
       let metingen: Map<string, Meting>;
       try {
@@ -45,7 +48,7 @@ export class Meter {
       } catch {
         metingen = new Map(ids.map((id) => [id, null]));
       }
-      for (const { schermId, luisteraar } of this.volgers.values()) {
+      for (const { schermId, luisteraar } of volgers) {
         // Eén stukgelopen luisteraar mag de rest niet raken.
         try {
           luisteraar(metingen.get(schermId) ?? null);
