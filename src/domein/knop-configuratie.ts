@@ -1,4 +1,5 @@
-import type { Scherm } from "./types.js";
+import type { Instellingen, Orientatie, Scherm } from "./types.js";
+import { effectieveCode } from "./wisselregel.js";
 
 /** Eén keuze in een keuzelijst van de Property Inspector. */
 export type Keuze = { value: string; label: string };
@@ -37,4 +38,15 @@ export function schermItems(schermen: Scherm[]): Keuze[] {
 /** Keuzelijst met de ingangen van één scherm; leeg als het scherm ontbreekt. */
 export function ingangItems(scherm: Scherm | undefined): Keuze[] {
   return (scherm?.ingangen ?? []).map((c) => ({ value: String(c), label: ingangLabel(c) }));
+}
+
+/** Wat één knop nodig heeft om te kunnen wisselen. */
+export type KnopConfiguratie = { schermId: string; thuis: number; werk: number; orientatie: Orientatie };
+
+/** Volledige, bruikbare configuratie van één knop; undefined zolang er iets ontbreekt. */
+export function configuratie(i: Instellingen): KnopConfiguratie | undefined {
+  const thuis = effectieveCode(i.thuisingang, i.thuisingangHandmatig);
+  const werk = effectieveCode(i.werkingang, i.werkingangHandmatig);
+  if (!i.schermId || thuis === undefined || werk === undefined) return undefined;
+  return { schermId: i.schermId, thuis, werk, orientatie: i.orientatie ?? "staand" };
 }

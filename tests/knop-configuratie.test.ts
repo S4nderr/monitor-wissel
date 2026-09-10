@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ingangItems, ingangLabel, schermItems, schermLabel } from "../src/domein/knop-configuratie.js";
+import { configuratie, ingangItems, ingangLabel, schermItems, schermLabel } from "../src/domein/knop-configuratie.js";
 import type { Scherm } from "../src/domein/types.js";
 
 const hp: Scherm = { id: "HP-1", naam: "HP E273q", serie: "6CM81602H4", huidig: 17, ingangen: [1, 15, 17, 19] };
@@ -33,4 +33,22 @@ describe("ingangItems", () => {
       { value: "19", label: "19 – HDMI 3 / USB-C" },
     ]));
   it("geen scherm geeft een lege lijst", () => expect(ingangItems(undefined)).toEqual([]));
+});
+
+describe("configuratie", () => {
+  it("onvolledig is undefined", () => {
+    expect(configuratie({})).toBeUndefined();
+    expect(configuratie({ schermId: "x", thuisingang: "17" })).toBeUndefined();
+  });
+  it("volledig met handmatige code", () => {
+    expect(configuratie({ schermId: "x", thuisingang: "15", werkingang: "17", werkingangHandmatig: "5", orientatie: "liggend" })).toEqual({
+      schermId: "x",
+      thuis: 15,
+      werk: 5,
+      orientatie: "liggend",
+    });
+  });
+  it("oriëntatie is standaard staand", () => {
+    expect(configuratie({ schermId: "x", thuisingang: "17", werkingang: "15" })?.orientatie).toBe("staand");
+  });
 });

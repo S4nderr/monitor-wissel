@@ -36,11 +36,10 @@
   </sdpi-item>
 
   <script>
-    // Als het scherm wisselt, vraag de ingangenlijst opnieuw op.
-    const { streamDeckClient } = SDPIComponents;
+    // Als het scherm wisselt, laat de keuzelijsten zelf opnieuw ophalen. Géén extra
+    // sendToPlugin: die zou de plugin met het oude schermId laten antwoorden.
     document.querySelector('[setting="schermId"]').addEventListener("valuechange", () => {
       for (const sel of document.querySelectorAll('[datasource="ingangen"]')) sel.refresh?.();
-      streamDeckClient.send("sendToPlugin", { event: "ingangen", isRefresh: true });
     });
   </script>
 </body>
