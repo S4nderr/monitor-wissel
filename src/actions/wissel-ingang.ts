@@ -161,7 +161,12 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     }
     // Dezelfde configuratie opnieuw volgen zou alleen de verse meting weggooien en een extra
     // leesronde kosten; de knop staat dan al goed bij de meter.
-    if (zelfdeConfiguratie(this.gevolgdeConfiguratie.get(context), cfg)) return;
+    if (zelfdeConfiguratie(this.gevolgdeConfiguratie.get(context), cfg)) {
+      // Niet opnieuw meten, wel tekenen: een tweede willAppear (apparaat opnieuw
+      // verbonden) kan een leeg knopbeeld betekenen.
+      await teken(knopDataUrl(this.laatsteStand.get(context) ?? "onbekend", cfg.orientatie));
+      return;
+    }
     if (cfg.thuis === cfg.werk) {
       this.logger.warn(`knop ${context} heeft dezelfde thuis- en werkingang (${cfg.thuis}); wisselen doet dan niets`);
     }

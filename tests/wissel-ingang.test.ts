@@ -164,6 +164,20 @@ describe("WisselIngang", () => {
     expect(brug.leesIngangen).toHaveBeenCalledTimes(2);
   });
 
+  it("tekent opnieuw bij een herhaalde willAppear met dezelfde configuratie (bv. reconnect)", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, VOLLEDIG));
+    expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
+    knop.setImage.mockClear();
+    // Geen willDisappear ertussen: apparaat opnieuw verbonden, knopbeeld kan leeg zijn.
+    await actie.onWillAppear(verschijn(knop, VOLLEDIG));
+    expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
+    expect(knop.setImage).toHaveBeenCalledTimes(1);
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EPC%3C"));
+  });
+
   it("waarschuwt als thuis- en werkingang gelijk zijn", async () => {
     const brug = nepBrug({ hp: 17 });
     const { actie, logger } = maak(brug);
