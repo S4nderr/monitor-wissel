@@ -64,4 +64,42 @@ describe("Meter", () => {
     await meter.meetNu();
     expect(l).toHaveBeenCalledWith(null);
   });
+
+  it("een afgewezen leesIngangen levert null aan alle luisteraars en meetNu werpt niet", async () => {
+    const leesIngangen = vi.fn(async () => {
+      throw new Error("kapot");
+    });
+    const meter = new Meter({ leesIngangen });
+    const l = vi.fn();
+    meter.volg("ctx", "hp", l);
+    await expect(meter.meetNu()).resolves.toBeUndefined();
+    expect(l).toHaveBeenCalledWith(null);
+  });
+
+  it("een stukgelopen luisteraar houdt de andere luisteraar niet tegen", async () => {
+    const brug = nepBrug({ hp: 17, sam: 5 });
+    const meter = new Meter(brug, 5000);
+    const stuk = vi.fn(() => {
+      throw new Error("boem");
+    });
+    const goed = vi.fn();
+    meter.volg("ctx-a", "hp", stuk);
+    meter.volg("ctx-b", "sam", goed);
+    await expect(meter.meetNu()).resolves.toBeUndefined();
+    expect(goed).toHaveBeenCalledWith(5);
+  });
+
+  it("na een afgewezen meting werkt een volgende meting weer normaal", async () => {
+    const leesIngangen = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("kapot"))
+      .mockResolvedValueOnce(new Map([["hp", 17]]));
+    const meter = new Meter({ leesIngangen });
+    const l = vi.fn();
+    meter.volg("ctx", "hp", l);
+    await meter.meetNu();
+    expect(l).toHaveBeenCalledWith(null);
+    await meter.meetNu();
+    expect(l).toHaveBeenCalledWith(17);
+  });
 });

@@ -38,9 +38,20 @@ export class Meter {
     this.bezig = true;
     try {
       const ids = [...new Set([...this.volgers.values()].map((v) => v.schermId))];
-      const metingen = await this.brug.leesIngangen(ids);
+      // Een leesfout telt per ADR-0002 als WERK: elke ingang wordt dan null.
+      let metingen: Map<string, Meting>;
+      try {
+        metingen = await this.brug.leesIngangen(ids);
+      } catch {
+        metingen = new Map(ids.map((id) => [id, null]));
+      }
       for (const { schermId, luisteraar } of this.volgers.values()) {
-        luisteraar(metingen.get(schermId) ?? null);
+        // Eén stukgelopen luisteraar mag de rest niet raken.
+        try {
+          luisteraar(metingen.get(schermId) ?? null);
+        } catch {
+          // luisteraarfout wordt bewust genegeerd; deze klasse heeft geen logger.
+        }
       }
     } finally {
       this.bezig = false;
