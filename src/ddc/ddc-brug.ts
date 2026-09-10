@@ -96,7 +96,7 @@ export class PowerShellDdcBrug implements DdcBrug {
     private readonly logger: { warn(msg: string): void },
   ) {}
 
-  private draai(args: string[], prioriteit: Prioriteit): Promise<string> {
+  private draai(args: string[], prioriteit: Prioriteit, timeoutMs: number): Promise<string> {
     return this.wachtrij.voegToe(
       prioriteit,
       () =>
@@ -104,7 +104,7 @@ export class PowerShellDdcBrug implements DdcBrug {
           execFile(
             "powershell.exe",
             ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", this.scriptPad, ...args],
-            { windowsHide: true, timeout: 15000, maxBuffer: 1024 * 1024 },
+            { windowsHide: true, timeout: timeoutMs, maxBuffer: 1024 * 1024 },
             (fout, stdout, stderr) => {
               if (fout) this.logger.warn(`ddc.ps1 ${args[0]}: ${fout.message} ${stderr}`.trim());
               resolve(stdout ?? "");
@@ -116,15 +116,18 @@ export class PowerShellDdcBrug implements DdcBrug {
 
   /** De schermlijst is altijd laag: hij duurt het langst en mag nooit vóór een knopdruk komen. */
   async lijstSchermen(): Promise<Scherm[]> {
-    return parseLijst(await this.draai(["list"], "laag"));
+    // list leest ook de capabilities-string van elk scherm en duurt ~4 s; ruim de tijd.
+    return parseLijst(await this.draai(["list"], "laag", 15000));
   }
 
   async leesIngangen(ids: string[], prioriteit: Prioriteit = "laag"): Promise<Map<string, Meting>> {
     if (ids.length === 0) return new Map();
-    return parseMetingen(await this.draai(["get", ...ids], prioriteit), ids);
+    // Lezen en zetten duren normaal onder een seconde; hangt het langer, dan is er iets mis en
+    // mag de wachtrij niet 15 s vaststaan.
+    return parseMetingen(await this.draai(["get", ...ids], prioriteit, 5000), ids);
   }
 
   async zetIngang(id: string, code: number, prioriteit: Prioriteit = "laag"): Promise<{ ok: boolean; fout?: string }> {
-    return parseZetResultaat(await this.draai(["set", id, String(code)], prioriteit));
+    return parseZetResultaat(await this.draai(["set", id, String(code)], prioriteit, 5000));
   }
 }
