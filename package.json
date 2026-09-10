@@ -7,10 +7,11 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "restart": "npm run build && streamdeck restart nl.sander.monitor-wissel",
+    "restart": "npm run typecheck && npm run build && streamdeck restart nl.sander.monitor-wissel",
     "validate": "streamdeck validate nl.sander.monitor-wissel.sdPlugin",
-    "pack": "npm run build && streamdeck pack nl.sander.monitor-wissel.sdPlugin --force"
+    "pack": "npm run typecheck && npm run build && streamdeck pack nl.sander.monitor-wissel.sdPlugin --force"
   },
   "dependencies": {
     "@elgato/streamdeck": "^2.1.2"
