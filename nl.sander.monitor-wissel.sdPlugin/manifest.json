@@ -1,0 +1,27 @@
+{
+  "Name": "Monitor-wissel",
+  "Version": "0.1.0.0",
+  "Author": "Sander",
+  "Description": "Wisselt per scherm tussen thuis-pc en werklaptop via DDC/CI en toont de stand op de knop.",
+  "Category": "Monitor-wissel",
+  "CategoryIcon": "imgs/plugin/category-icon",
+  "Icon": "imgs/plugin/marketplace",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 3,
+  "Software": { "MinimumVersion": "7.1" },
+  "OS": [{ "Platform": "windows", "MinimumVersion": "10" }],
+  "Nodejs": { "Version": "24", "Debug": "enabled" },
+  "UUID": "nl.sander.monitor-wissel",
+  "Actions": [
+    {
+      "Name": "Wissel ingang",
+      "UUID": "nl.sander.monitor-wissel.wissel-ingang",
+      "Icon": "imgs/actions/wissel-ingang/icon",
+      "Tooltip": "Wisselt één scherm tussen thuisingang en werkingang op basis van de huidige stand.",
+      "PropertyInspectorPath": "ui/wissel-ingang.html",
+      "Controllers": ["Keypad"],
+      "UserTitleEnabled": false,
+      "States": [{ "Image": "imgs/actions/wissel-ingang/key" }]
+    }
+  ]
+}

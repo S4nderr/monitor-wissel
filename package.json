@@ -1,0 +1,25 @@
+{
+  "name": "monitor-wissel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stream Deck-plugin die per scherm wisselt tussen thuis-pc en werklaptop via DDC/CI",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "test": "vitest run --passWithNoTests",
+    "restart": "npm run build && streamdeck restart nl.sander.monitor-wissel",
+    "validate": "streamdeck validate nl.sander.monitor-wissel.sdPlugin",
+    "pack": "npm run build && streamdeck pack nl.sander.monitor-wissel.sdPlugin --force"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^2.1.2"
+  },
+  "devDependencies": {
+    "@elgato/cli": "^1.9.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
