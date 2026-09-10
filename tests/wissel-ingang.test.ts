@@ -16,6 +16,7 @@ const { Meter } = await import("../src/ddc/meter.js");
 
 const HP: Scherm = { id: "hp", naam: "HP E273q", serie: "6CM81602H4", huidig: 17, ingangen: [15, 17] };
 const VOLLEDIG: Instellingen = { schermId: "hp", thuisingang: "17", werkingang: "15", orientatie: "staand" };
+const GEHEUGEN: Instellingen = { ...VOLLEDIG, geheugenstand: true };
 
 function nepBrug(metingen: Record<string, Meting> = { hp: 17 }) {
   return {
@@ -37,6 +38,7 @@ function nepKnop(id = "ctx-1") {
     setImage: vi.fn(async () => {}),
     showAlert: vi.fn(async () => {}),
     getSettings: vi.fn(async () => VOLLEDIG),
+    setSettings: vi.fn(async () => {}),
   };
 }
 
@@ -185,6 +187,16 @@ describe("WisselIngang", () => {
     expect(logger.regels.join("\n")).toContain("dezelfde thuis- en werkingang");
   });
 
+  it("meet opnieuw zodra het vinkje Geheugenstand weer uitgaat", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, GEHEUGEN));
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
+    await actie.onDidReceiveSettings(instellingenEvent(knop, VOLLEDIG));
+    expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
+  });
+
   it("vult de ingangenlijst uit de onthouden instellingen, zonder getSettings", async () => {
     const brug = nepBrug({ hp: 17 });
     const { actie } = maak(brug);
@@ -199,5 +211,86 @@ describe("WisselIngang", () => {
         { value: "17", label: "17 – HDMI 1" },
       ],
     });
+  });
+});
+
+describe("WisselIngang met Geheugenstand (ADR-0003)", () => {
+  it("stuurt zonder geheugen naar de thuisingang en onthoudt pc, zonder te meten", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, logger } = maak(brug);
+    const knop = nepKnop();
+    await actie.onKeyDown(druk(knop, GEHEUGEN));
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
+    expect(brug.zetIngang).toHaveBeenCalledWith("hp", 17, "hoog");
+    expect(knop.setSettings).toHaveBeenCalledWith({ ...GEHEUGEN, onthoudenStand: "pc" });
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EPC%3C"));
+    expect(logger.regels.join("\n")).toContain("bron=geheugen");
+    expect(logger.regels.join("\n")).toContain("meting=geheugen");
+  });
+
+  it("stuurt vanuit onthouden pc naar de werkingang en onthoudt werk", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onKeyDown(druk(knop, { ...GEHEUGEN, onthoudenStand: "pc" }));
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
+    expect(brug.zetIngang).toHaveBeenCalledWith("hp", 15, "hoog");
+    expect(knop.setSettings).toHaveBeenCalledWith({ ...GEHEUGEN, onthoudenStand: "werk" });
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EWERK%3C"));
+  });
+
+  it("stuurt vanuit onthouden werk terug naar de thuisingang", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onKeyDown(druk(knop, { ...GEHEUGEN, onthoudenStand: "werk" }));
+    expect(brug.zetIngang).toHaveBeenCalledWith("hp", 17, "hoog");
+    expect(knop.setSettings).toHaveBeenCalledWith({ ...GEHEUGEN, onthoudenStand: "pc" });
+  });
+
+  it("laat het geheugen staan als de zetopdracht mislukt", async () => {
+    const brug = nepBrug({ hp: 17 });
+    brug.zetIngang.mockResolvedValue({ ok: false, fout: "SetVCPFeature mislukt" });
+    const { actie, logger } = maak(brug);
+    const knop = nepKnop();
+    await actie.onKeyDown(druk(knop, { ...GEHEUGEN, onthoudenStand: "pc" }));
+    expect(knop.showAlert).toHaveBeenCalledTimes(1);
+    expect(knop.setSettings).not.toHaveBeenCalled();
+    expect(knop.setImage).not.toHaveBeenCalled();
+    expect(logger.regels.join("\n")).toContain("ok=false");
+  });
+
+  it("volgt de knop niet bij de meter en tekent uit het geheugen", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, meter } = maak(brug);
+    const volg = vi.spyOn(meter, "volg");
+    const vergeet = vi.spyOn(meter, "vergeet");
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, { ...GEHEUGEN, onthoudenStand: "werk" }));
+    expect(volg).not.toHaveBeenCalled();
+    expect(vergeet).toHaveBeenCalledWith(knop.id);
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EWERK%3C"));
+  });
+
+  it("toont een vraagteken zolang er niets onthouden is", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, GEHEUGEN));
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3E%3F%3C"));
+  });
+
+  it("tekent bij de setSettings-echo het verse geheugen, niet de vorige stand", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, GEHEUGEN));
+    await actie.onKeyDown(druk(knop, GEHEUGEN));
+    knop.setImage.mockClear();
+    // Zo komt onze eigen setSettings terug binnen: gelijke configuratie, ander geheugen.
+    await actie.onDidReceiveSettings(instellingenEvent(knop, { ...GEHEUGEN, onthoudenStand: "pc" }));
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EPC%3C"));
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
   });
 });
