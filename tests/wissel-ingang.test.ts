@@ -285,12 +285,29 @@ describe("WisselIngang met Geheugenstand (ADR-0003)", () => {
     const brug = nepBrug({ hp: 17 });
     const { actie } = maak(brug);
     const knop = nepKnop();
-    await actie.onWillAppear(verschijn(knop, GEHEUGEN));
-    await actie.onKeyDown(druk(knop, GEHEUGEN));
+    await actie.onWillAppear(verschijn(knop, { ...GEHEUGEN, onthoudenStand: "werk" }));
+    expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EWERK%3C"));
     knop.setImage.mockClear();
-    // Zo komt onze eigen setSettings terug binnen: gelijke configuratie, ander geheugen.
+    // Zo komt een instellingenschrijving van buiten het drukpad binnen: gelijke configuratie
+    // (geheugenstand verandert niet), alleen het onthoudenStand-veld is vers. Zou de
+    // geheugenstand-tak na de gelijke-configuratie-controle staan, dan zou dit gewoon de vorige
+    // (WERK) stand herhalen in plaats van het verse geheugen (PC) te tekenen.
     await actie.onDidReceiveSettings(instellingenEvent(knop, { ...GEHEUGEN, onthoudenStand: "pc" }));
     expect(knop.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EPC%3C"));
     expect(brug.leesIngangen).not.toHaveBeenCalled();
+    expect(brug.zetIngang).not.toHaveBeenCalled();
+  });
+
+  it("laat de onthouden instellingen winnen van een verouderde payload bij een tweede druk", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maak(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, GEHEUGEN));
+    // Beide drukken sturen dezelfde (verouderde) payload zonder onthoudenStand mee; alleen de
+    // instellingen-map die de eerste druk zelf bijwerkt kent het verse geheugen.
+    await actie.onKeyDown(druk(knop, GEHEUGEN));
+    expect(brug.zetIngang).toHaveBeenNthCalledWith(1, "hp", 17, "hoog");
+    await actie.onKeyDown(druk(knop, GEHEUGEN));
+    expect(brug.zetIngang).toHaveBeenNthCalledWith(2, "hp", 15, "hoog");
   });
 });
