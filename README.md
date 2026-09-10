@@ -19,7 +19,7 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 ## Gedrag
 
 - De Property Inspector vraagt de schermlijst één keer op (~4 s, één `ddc.ps1 list`) en bewaart die 60 s; de keuzelijsten voor scherm en ingang openen daarna meteen.
-- Een knopdruk gaat voor op de achtergrondpoll: de DDC-aanroep voor een druk wordt altijd eerder uitgevoerd dan een lopende of wachtende poll.
+- Een knopdruk gaat voor op wachtende achtergrondpolls: die schuiven achteraan de rij. Een poll die al bezig is wordt niet onderbroken, dus een druk kan daar nog even op wachten.
 - Is de laatste meting van een knop jonger dan 5 s, dan gebruikt een druk die meting meteen in plaats van eerst opnieuw te meten.
 - Komt een tweede druk binnen terwijl de wissel van de vorige druk nog loopt, dan wordt die genegeerd; er gaat geen dubbele DDC-opdracht uit.
 
