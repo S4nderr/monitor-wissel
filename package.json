@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "restart": "npm run build && streamdeck restart nl.sander.monitor-wissel",
     "validate": "streamdeck validate nl.sander.monitor-wissel.sdPlugin",
     "pack": "npm run build && streamdeck pack nl.sander.monitor-wissel.sdPlugin --force"
