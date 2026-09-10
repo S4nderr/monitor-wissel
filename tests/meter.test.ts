@@ -109,6 +109,42 @@ describe("Meter", () => {
     expect(nieuw).not.toHaveBeenCalled();
   });
 
+  it("een luisteraar die tijdens een lopende meting vervangen wordt, krijgt die meting niet; de nieuwe ook niet", async () => {
+    let los!: (m: Map<string, Meting>) => void;
+    const antwoord = new Promise<Map<string, Meting>>((resolve) => {
+      los = resolve;
+    });
+    const leesIngangen = vi.fn(() => antwoord);
+    const meter = new Meter({ leesIngangen });
+    const oud = vi.fn();
+    meter.volg("ctx", "hp", oud);
+    const lopend = meter.meetNu();
+    // Context wordt tijdens de lopende meting herverbonden op een ander scherm.
+    const nieuw = vi.fn();
+    meter.volg("ctx", "hp", nieuw);
+    los(new Map([["hp", 17]]));
+    await lopend;
+    expect(oud).not.toHaveBeenCalled();
+    expect(nieuw).not.toHaveBeenCalled();
+  });
+
+  it("een luisteraar die tijdens een lopende meting vergeten wordt, wordt niet gemeld", async () => {
+    let los!: (m: Map<string, Meting>) => void;
+    const antwoord = new Promise<Map<string, Meting>>((resolve) => {
+      los = resolve;
+    });
+    const leesIngangen = vi.fn(() => antwoord);
+    const meter = new Meter({ leesIngangen });
+    const l = vi.fn();
+    meter.volg("ctx", "hp", l);
+    const lopend = meter.meetNu();
+    // Knop verdwijnt (bv. onWillDisappear) terwijl de meting nog onderweg is.
+    meter.vergeet("ctx");
+    los(new Map([["hp", 17]]));
+    await expect(lopend).resolves.toBeUndefined();
+    expect(l).not.toHaveBeenCalled();
+  });
+
   it("na een afgewezen meting werkt een volgende meting weer normaal", async () => {
     const leesIngangen = vi
       .fn()
