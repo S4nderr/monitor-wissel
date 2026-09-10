@@ -9,6 +9,8 @@ export class Meter {
   private timer: ReturnType<typeof setInterval> | undefined;
   private uitgesteld: ReturnType<typeof setTimeout> | undefined;
   private bezig = false;
+  /** Er is om een meting gevraagd terwijl er al één liep; die vraag wordt na afloop ingelost. */
+  private herhalen = false;
 
   constructor(
     private readonly brug: Pick<DdcBrug, "leesIngangen">,
@@ -34,7 +36,14 @@ export class Meter {
   }
 
   async meetNu(): Promise<void> {
-    if (this.bezig || this.volgers.size === 0) return;
+    if (this.volgers.size === 0) return;
+    // Loopt er al een meting, dan is de knop die nu bijkomt niet in de momentopname meegenomen
+    // (zie hieronder). Zonder herhaling zou hij tot de volgende interval-tik leeg blijven, dus
+    // vragen we één extra ronde aan zodra de lopende meting klaar is.
+    if (this.bezig) {
+      this.herhalen = true;
+      return;
+    }
     this.bezig = true;
     try {
       // Momentopname vóór de await: een knop die tijdens deze meting bijkomt hoort er nog niet bij
@@ -62,10 +71,15 @@ export class Meter {
       }
     } finally {
       this.bezig = false;
+      if (this.herhalen) {
+        this.herhalen = false;
+        await this.meetNu();
+      }
     }
   }
 
   stop(): void {
+    this.herhalen = false;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
     if (this.uitgesteld) clearTimeout(this.uitgesteld);

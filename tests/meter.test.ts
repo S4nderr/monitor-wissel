@@ -145,6 +145,36 @@ describe("Meter", () => {
     expect(l).not.toHaveBeenCalled();
   });
 
+  it("een knop die tijdens een lopende meting bijkomt, krijgt meteen daarna een eigen meting", async () => {
+    let los!: (m: Map<string, Meting>) => void;
+    const eerste = new Promise<Map<string, Meting>>((resolve) => {
+      los = resolve;
+    });
+    const leesIngangen = vi
+      .fn<(ids: string[]) => Promise<Map<string, Meting>>>()
+      .mockReturnValueOnce(eerste)
+      .mockResolvedValue(
+        new Map([
+          ["hp", 17],
+          ["sam", 5],
+        ]),
+      );
+    const meter = new Meter({ leesIngangen });
+    const a = vi.fn();
+    meter.volg("ctx-a", "hp", a);
+    const lopend = meter.meetNu();
+    // Knop B komt op terwijl de eerste meting nog onderweg is en vraagt zelf om een meting.
+    const b = vi.fn();
+    meter.volg("ctx-b", "sam", b);
+    await meter.meetNu();
+    expect(leesIngangen).toHaveBeenCalledTimes(1);
+    los(new Map([["hp", 17]]));
+    await lopend;
+    expect(leesIngangen).toHaveBeenCalledTimes(2);
+    expect(leesIngangen).toHaveBeenLastCalledWith(["hp", "sam"]);
+    expect(b).toHaveBeenCalledWith(5);
+  });
+
   it("na een afgewezen meting werkt een volgende meting weer normaal", async () => {
     const leesIngangen = vi
       .fn()
