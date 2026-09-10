@@ -10,7 +10,7 @@ Een eigen Stream Deck-plugin met één actie, **Wissel ingang**. Elke knop hoort
 
 | Scherm | Oriëntatie | Thuisingang | Werkingang | Gedrag |
 |---|---|---|---|---|
-| HP E273q, serie 6CM81602H7 | staand | 17 (HDMI 1) | 15 (DisplayPort) | Onleesbaar via DDC zodra hij de laptop toont; zetopdrachten komen wél aan. Springt bij ontbrekend signaal vanzelf terug. Meldt ingangen 1, 15, 17, 19. |
+| HP E273q, serie 6CM81602H4 | staand | 17 (HDMI 1) | 15 (DisplayPort) | Onleesbaar via DDC zodra hij de laptop toont; zetopdrachten komen wél aan. Springt bij ontbrekend signaal vanzelf terug. Meldt ingangen 1, 15, 17, 19. |
 | Samsung Odyssey G5 (model "FALCON") | liggend | 15 (DisplayPort) | 5 (HDMI 1) | Eigen codes: 5 = HDMI 1, 6 = HDMI 2, 15 = DisplayPort; negeert de standaardcodes 17 en 18. Altijd leesbaar. Blijft op een ingang zonder signaal staan. Meldt zelf ingangen 1, 3, 4, 15, 16, 17, 18, dus de werkende codes 5 en 6 staan níét in zijn eigen lijst. |
 
 Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI via de Windows-laag `dxva2.dll` (P/Invoke vanuit PowerShell 5.1) werkt op deze pc voor lezen en zetten; `Add-Type` met C# is bewezen.
