@@ -41,12 +41,14 @@ export function ingangItems(scherm: Scherm | undefined): Keuze[] {
 }
 
 /** Wat één knop nodig heeft om te kunnen wisselen. */
-export type KnopConfiguratie = { schermId: string; thuis: number; werk: number; orientatie: Orientatie };
+export type KnopConfiguratie = { schermId: string; thuis: number; werk: number; orientatie: Orientatie; geheugenstand: boolean };
 
 /** Volledige, bruikbare configuratie van één knop; undefined zolang er iets ontbreekt. */
 export function configuratie(i: Instellingen): KnopConfiguratie | undefined {
   const thuis = effectieveCode(i.thuisingang, i.thuisingangHandmatig);
   const werk = effectieveCode(i.werkingang, i.werkingangHandmatig);
   if (!i.schermId || thuis === undefined || werk === undefined) return undefined;
-  return { schermId: i.schermId, thuis, werk, orientatie: i.orientatie ?? "staand" };
+  // geheugenstand hoort erbij (ADR-0003): het verandert wat de knop doet. onthoudenStand niet:
+  // dat wisselt bij elke druk en zou de knop dan telkens opnieuw laten registreren.
+  return { schermId: i.schermId, thuis, werk, orientatie: i.orientatie ?? "staand", geheugenstand: i.geheugenstand ?? false };
 }

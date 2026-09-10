@@ -10,6 +10,10 @@ export type Instellingen = {
   thuisingangHandmatig?: string;
   werkingangHandmatig?: string;
   orientatie?: Orientatie;
+  /** ADR-0003: dit scherm meldt zijn ingang niet betrouwbaar; niet meten maar onthouden. */
+  geheugenstand?: boolean;
+  /** ADR-0003: de laatst succesvol gestuurde kant; alleen in gebruik bij geheugenstand. */
+  onthoudenStand?: "pc" | "werk";
 };
 
 export interface Scherm {

@@ -46,9 +46,19 @@ describe("configuratie", () => {
       thuis: 15,
       werk: 5,
       orientatie: "liggend",
+      geheugenstand: false,
     });
   });
   it("oriëntatie is standaard staand", () => {
     expect(configuratie({ schermId: "x", thuisingang: "17", werkingang: "15" })?.orientatie).toBe("staand");
+  });
+  it("geheugenstand staat standaard uit en komt mee als hij aanstaat", () => {
+    expect(configuratie({ schermId: "x", thuisingang: "17", werkingang: "15" })?.geheugenstand).toBe(false);
+    expect(configuratie({ schermId: "x", thuisingang: "17", werkingang: "15", geheugenstand: true })?.geheugenstand).toBe(true);
+  });
+  it("de onthouden stand hoort niet bij de configuratie", () => {
+    expect(configuratie({ schermId: "x", thuisingang: "17", werkingang: "15", onthoudenStand: "werk" })).toEqual(
+      configuratie({ schermId: "x", thuisingang: "17", werkingang: "15" }),
+    );
   });
 });

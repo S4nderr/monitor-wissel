@@ -24,3 +24,13 @@ export function bepaalStand(meting: Meting, thuis: number, werk: number): Stand 
 export function bepaalDoel(stand: Stand, thuis: number, werk: number): number {
   return stand === "pc" ? werk : thuis;
 }
+
+/** ADR-0003: zonder onthouden kant is de stand onbekend, en die gaat per ADR-0002 naar de thuisingang. */
+export function standUitGeheugen(onthouden: "pc" | "werk" | undefined): Stand {
+  return onthouden ?? "onbekend";
+}
+
+/** ADR-0003: wat de knop na een geslaagde zetopdracht onthoudt als kant. */
+export function onthoudNaZet(doel: number, werk: number): "pc" | "werk" {
+  return doel === werk ? "werk" : "pc";
+}

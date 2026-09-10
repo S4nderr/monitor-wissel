@@ -12,7 +12,7 @@ import type { Meter } from "../ddc/meter.js";
 import { SchermenCache } from "../ddc/schermen-cache.js";
 import { configuratie, ingangItems, schermItems, type KnopConfiguratie } from "../domein/knop-configuratie.js";
 import type { Instellingen, Meting, Stand } from "../domein/types.js";
-import { bepaalDoel, bepaalStand } from "../domein/wisselregel.js";
+import { bepaalDoel, bepaalStand, onthoudNaZet, standUitGeheugen } from "../domein/wisselregel.js";
 import { knopDataUrl } from "../weergave/knop-svg.js";
 
 /** Wat de Property Inspector vraagt: welke keuzelijst gevuld moet worden. */
@@ -26,7 +26,14 @@ const MEETVERSHEID_MS = 5000;
 
 /** Twee configuraties zijn gelijk als alles wat de knop laat doen en tonen gelijk is. */
 function zelfdeConfiguratie(a: KnopConfiguratie | undefined, b: KnopConfiguratie): boolean {
-  return a !== undefined && a.schermId === b.schermId && a.thuis === b.thuis && a.werk === b.werk && a.orientatie === b.orientatie;
+  return (
+    a !== undefined &&
+    a.schermId === b.schermId &&
+    a.thuis === b.thuis &&
+    a.werk === b.werk &&
+    a.orientatie === b.orientatie &&
+    a.geheugenstand === b.geheugenstand
+  );
 }
 
 @action({ UUID: "nl.sander.monitor-wissel.wissel-ingang" })
@@ -96,6 +103,10 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     }
     this.wisselBezig.add(ev.action.id);
     try {
+      if (cfg.geheugenstand) {
+        await this.wisselUitGeheugen(ev, cfg);
+        return;
+      }
       // De poll meet elke 5 s; is die meting nog vers, dan slaan we de leesronde (~0,8 s) over.
       const bekend = this.laatsteMeting.get(ev.action.id);
       const versGenoeg = bekend !== undefined && Date.now() - bekend.tijd < MEETVERSHEID_MS;
@@ -148,6 +159,33 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     }
   }
 
+  /**
+   * ADR-0003: wisselen zonder te meten. De stand komt uit het geheugen in de knopinstellingen en
+   * de nieuwe kant wordt daar na een geslaagde zetopdracht weer in bewaard, dus ook na een herstart.
+   */
+  private async wisselUitGeheugen(ev: KeyDownEvent<Instellingen>, cfg: KnopConfiguratie): Promise<void> {
+    // De onthouden instellingen lopen nooit achter op de payload: wij schrijven ze hieronder zelf bij.
+    const huidigeInstellingen = this.instellingen.get(ev.action.id) ?? ev.payload.settings;
+    const stand = standUitGeheugen(huidigeInstellingen.onthoudenStand);
+    const doel = bepaalDoel(stand, cfg.thuis, cfg.werk);
+    const resultaat = await this.brug.zetIngang(cfg.schermId, doel, "hoog");
+    this.logger.info(
+      `wissel scherm=${cfg.schermId} meting=geheugen stand=${stand} gestuurd=${doel} ok=${resultaat.ok}${resultaat.fout ? ` fout=${resultaat.fout}` : ""} bron=geheugen`,
+    );
+    if (!resultaat.ok) {
+      // Mislukt: het geheugen blijft staan, zodat de volgende druk dezelfde kant opnieuw probeert.
+      await ev.action.showAlert();
+      return;
+    }
+    const onthoudenStand = onthoudNaZet(doel, cfg.werk);
+    // Samenvoegen, nooit vervangen: setSettings schrijft de hele instellingenset van de knop.
+    const nieuweInstellingen: Instellingen = { ...huidigeInstellingen, onthoudenStand };
+    this.instellingen.set(ev.action.id, nieuweInstellingen);
+    this.laatsteStand.set(ev.action.id, onthoudenStand);
+    await ev.action.setSettings(nieuweInstellingen);
+    await ev.action.setImage(knopDataUrl(onthoudenStand, cfg.orientatie));
+  }
+
   /** Registreert de knop bij de meter (of haalt hem eraf als hij onvolledig is) en tekent direct. */
   private async herVolg(context: string, instellingen: Instellingen, teken: (dataUrl: string) => Promise<void>): Promise<void> {
     const cfg = configuratie(instellingen);
@@ -157,6 +195,19 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       this.laatsteMeting.delete(context);
       this.gevolgdeConfiguratie.delete(context);
       await teken(knopDataUrl("onbekend", instellingen.orientatie ?? "staand"));
+      return;
+    }
+    if (cfg.geheugenstand) {
+      // ADR-0003: dit scherm meldt zijn ingang niet betrouwbaar, dus niet meten en niet pollen;
+      // de knop toont wat hij het laatst gestuurd heeft. Deze tak staat vóór de
+      // gelijke-configuratie-controle, want na elke druk komt hier een setSettings binnen en dan
+      // moet juist het verse geheugen op de knop komen, niet de laatst getekende stand.
+      this.meter.vergeet(context);
+      this.laatsteMeting.delete(context);
+      this.gevolgdeConfiguratie.set(context, cfg);
+      const stand = standUitGeheugen(instellingen.onthoudenStand);
+      this.laatsteStand.set(context, stand);
+      await teken(knopDataUrl(stand, cfg.orientatie));
       return;
     }
     // Dezelfde configuratie opnieuw volgen zou alleen de verse meting weggooien en een extra
