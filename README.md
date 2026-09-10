@@ -13,6 +13,7 @@ Stream Deck-plugin die per knop één scherm wisselt tussen de thuis-pc en de we
 1. Installeer de plugin (dubbelklik op het `.streamDeckPlugin`-bestand) of koppel de ontwikkelversie: `npx streamdeck link nl.sander.monitor-wissel.sdPlugin`.
 2. Sleep "Wissel ingang" op een knop. Kies scherm, thuisingang, werkingang en oriëntatie.
 3. Codes zijn decimaal: 17 = HDMI 1, 15 = DisplayPort. Samsung-schermen gebruiken eigen codes (5 = HDMI 1, 6 = HDMI 2); vul die in het veld "code handmatig".
+4. Zet **Geheugenstand** aan als het scherm zijn ingang niet betrouwbaar meldt: als het over de pc-kabel altijd dezelfde ingang meldt, ook terwijl het de laptop toont (zoals de HP E273q). De knop meet dan niet meer, maar onthoudt de laatst gestuurde kant in zijn instellingen en wisselt daarop. Meldt het scherm zijn ingang wél correct (zoals de Samsung), laat het vinkje dan uit.
 
 De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk ander geval (werk, onbekend, niet leesbaar) naar de thuisingang.
 
@@ -34,6 +35,7 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 
 ## Bekende eigenschappen van Sanders schermen
 
-- HP E273q (serie 6CM81602H4): thuis 17, werk 15; onleesbaar zodra hij de laptop toont (de knop toont dan WERK); springt bij ontbrekend signaal zelf terug.
+- HP E273q (serie 6CM81602H4): thuis 17, werk 15; meldt over de pc-kabel altijd 17, ook terwijl hij de laptop toont, en is alleen tijdens het omschakelen circa 4 s onleesbaar. Meten helpt hier dus niet: deze knop staat op Geheugenstand. Springt bij ontbrekend signaal zelf terug.
 - Samsung Odyssey G5: thuis 15, werk 5; altijd leesbaar; blijft op een lege ingang staan.
+- Wissel je een scherm met Geheugenstand via de knopjes op het scherm zelf, dan loopt het geheugen achter: de eerstvolgende druk stuurt de verkeerde kant op en de tweede druk zet het weer recht.
 - Een scherm wordt herkend aan zijn Windows-apparaatpad, en dat hangt aan de poort. Verhuist de kabel naar een andere aansluiting van de pc, dan vindt de knop "zijn" scherm niet meer: hij toont WERK en waarschuwt bij een druk (in het log staat dan "scherm niet gevonden"). Kies het scherm dan opnieuw in de knopinstellingen.
