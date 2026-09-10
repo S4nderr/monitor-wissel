@@ -1,10 +1,52 @@
 import { execFile } from "node:child_process";
 import type { Meting, Scherm } from "../domein/types.js";
 
+/** hoog = een knopdruk (lezen/zetten) en gaat vóór polls en schermlijsten; laag = de rest. */
+export type Prioriteit = "hoog" | "laag";
+
 export interface DdcBrug {
   lijstSchermen(): Promise<Scherm[]>;
-  leesIngangen(ids: string[]): Promise<Map<string, Meting>>;
-  zetIngang(id: string, code: number): Promise<{ ok: boolean; fout?: string }>;
+  leesIngangen(ids: string[], prioriteit?: Prioriteit): Promise<Map<string, Meting>>;
+  zetIngang(id: string, code: number, prioriteit?: Prioriteit): Promise<{ ok: boolean; fout?: string }>;
+}
+
+type Wachtende = { taak: () => Promise<unknown>; los: (waarde: unknown) => void; breek: (fout: unknown) => void };
+
+/**
+ * Draait taken één voor één (DDC verdraagt geen twee gelijktijdige PowerShell-aanroepen)
+ * en laat een hoog-taak vóór alle wachtende laag-taken. De lopende taak wordt nooit onderbroken.
+ */
+export class PrioriteitsWachtrij {
+  private readonly hoog: Wachtende[] = [];
+  private readonly laag: Wachtende[] = [];
+  private bezig = false;
+
+  voegToe<T>(prioriteit: Prioriteit, taak: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const rij = prioriteit === "hoog" ? this.hoog : this.laag;
+      rij.push({ taak: taak as () => Promise<unknown>, los: resolve as (waarde: unknown) => void, breek: reject });
+      void this.werkAf();
+    });
+  }
+
+  private async werkAf(): Promise<void> {
+    if (this.bezig) return;
+    this.bezig = true;
+    try {
+      for (;;) {
+        const volgende = this.hoog.shift() ?? this.laag.shift();
+        if (!volgende) return;
+        // Een mislukte taak mag de wachtrij nooit stilzetten; de fout gaat alleen naar zijn eigen aanroeper.
+        try {
+          volgende.los(await volgende.taak());
+        } catch (fout) {
+          volgende.breek(fout);
+        }
+      }
+    } finally {
+      this.bezig = false;
+    }
+  }
 }
 
 function veiligJson(tekst: string): unknown {
@@ -47,15 +89,16 @@ export function parseZetResultaat(json: string): { ok: boolean; fout?: string } 
 
 /** Spawnt ps/ddc.ps1 onzichtbaar (ADR-0001). Eén aanroep per commando; nooit twee tegelijk (DDC verdraagt dat slecht). */
 export class PowerShellDdcBrug implements DdcBrug {
-  private wachtrij: Promise<unknown> = Promise.resolve();
+  private readonly wachtrij = new PrioriteitsWachtrij();
 
   constructor(
     private readonly scriptPad: string,
     private readonly logger: { warn(msg: string): void },
   ) {}
 
-  private draai(args: string[]): Promise<string> {
-    const taak = this.wachtrij.then(
+  private draai(args: string[], prioriteit: Prioriteit): Promise<string> {
+    return this.wachtrij.voegToe(
+      prioriteit,
       () =>
         new Promise<string>((resolve) => {
           execFile(
@@ -69,20 +112,19 @@ export class PowerShellDdcBrug implements DdcBrug {
           );
         }),
     );
-    this.wachtrij = taak.catch(() => undefined);
-    return taak;
   }
 
+  /** De schermlijst is altijd laag: hij duurt het langst en mag nooit vóór een knopdruk komen. */
   async lijstSchermen(): Promise<Scherm[]> {
-    return parseLijst(await this.draai(["list"]));
+    return parseLijst(await this.draai(["list"], "laag"));
   }
 
-  async leesIngangen(ids: string[]): Promise<Map<string, Meting>> {
+  async leesIngangen(ids: string[], prioriteit: Prioriteit = "laag"): Promise<Map<string, Meting>> {
     if (ids.length === 0) return new Map();
-    return parseMetingen(await this.draai(["get", ...ids]), ids);
+    return parseMetingen(await this.draai(["get", ...ids], prioriteit), ids);
   }
 
-  async zetIngang(id: string, code: number): Promise<{ ok: boolean; fout?: string }> {
-    return parseZetResultaat(await this.draai(["set", id, String(code)]));
+  async zetIngang(id: string, code: number, prioriteit: Prioriteit = "laag"): Promise<{ ok: boolean; fout?: string }> {
+    return parseZetResultaat(await this.draai(["set", id, String(code)], prioriteit));
   }
 }
