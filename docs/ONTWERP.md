@@ -20,7 +20,7 @@ Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI 
 1. Gebruik de laatste meting als die jonger is dan 5 seconden; meet anders opnieuw. Staat de Geheugenstand voor deze knop aan (ADR-0003), dan wordt er niet gemeten en niet gepolld: de Stand is dan wat de knop het laatst succesvol gestuurd heeft, en zonder geheugen is dat ONBEKEND.
 2. Stand = PC als de meting gelijk is aan de Thuisingang; WERK als gelijk aan de Werkingang **of als de meting mislukt** (ADR-0002); anders ONBEKEND.
 3. Bij een druk: Stand PC → zet Werkingang; elke andere Stand → zet Thuisingang.
-4. Meet 2 seconden na een druk opnieuw, zodat de knop bijtrekt.
+4. Meet 2 seconden na een druk opnieuw, zodat de knop bijtrekt (niet bij Geheugenstand).
 5. Zolang minstens één knop zichtbaar is: elke 5 seconden één gebundelde meting voor alle zichtbare knoppen samen.
 
 ## Instellingen per knop (Property Inspector)
@@ -32,7 +32,7 @@ Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI 
 
 ## Weergave op de knop
 
-De plugin tekent het icoon zelf als SVG: een staand of liggend schermpje met label PC, WERK of ? en een bijpassende kleur. Bij een mislukte zetopdracht toont de knop de standaard Stream Deck-waarschuwing en schrijft de plugin een logregel. Elke Wissel wordt gelogd (welk Scherm, gemeten stand, gestuurde code, resultaat).
+De plugin tekent het icoon zelf als SVG: een staand of liggend schermpje met label PC, WERK of ? en een bijpassende kleur. Bij een mislukte zetopdracht toont de knop de standaard Stream Deck-waarschuwing en schrijft de plugin een logregel. Elke Wissel wordt gelogd (welk Scherm, gemeten of onthouden stand, gestuurde code, resultaat).
 
 ## Techniek
 

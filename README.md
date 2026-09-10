@@ -35,7 +35,6 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 
 ## Bekende eigenschappen van Sanders schermen
 
-- HP E273q (serie 6CM81602H4): thuis 17, werk 15; meldt over de pc-kabel altijd 17, ook terwijl hij de laptop toont, en is alleen tijdens het omschakelen circa 4 s onleesbaar. Meten helpt hier dus niet: deze knop staat op Geheugenstand. Springt bij ontbrekend signaal zelf terug.
+- HP E273q (serie 6CM81602H4): thuis 17, werk 15; meldt over de pc-kabel altijd 17, ook terwijl hij de laptop toont, en is alleen tijdens het omschakelen circa 4 s onleesbaar. Meten helpt hier dus niet: deze knop staat op Geheugenstand. Springt bij ontbrekend signaal zelf terug. Wissel je dit scherm via de knopjes op het scherm zelf, dan loopt het geheugen achter: de eerstvolgende druk stuurt de verkeerde kant op en de tweede druk zet het weer recht.
 - Samsung Odyssey G5: thuis 15, werk 5; altijd leesbaar; blijft op een lege ingang staan.
-- Wissel je een scherm met Geheugenstand via de knopjes op het scherm zelf, dan loopt het geheugen achter: de eerstvolgende druk stuurt de verkeerde kant op en de tweede druk zet het weer recht.
 - Een scherm wordt herkend aan zijn Windows-apparaatpad, en dat hangt aan de poort. Verhuist de kabel naar een andere aansluiting van de pc, dan vindt de knop "zijn" scherm niet meer: hij toont WERK en waarschuwt bij een druk (in het log staat dan "scherm niet gevonden"). Kies het scherm dan opnieuw in de knopinstellingen.

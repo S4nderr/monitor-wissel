@@ -197,6 +197,9 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       await teken(knopDataUrl("onbekend", instellingen.orientatie ?? "staand"));
       return;
     }
+    if (cfg.thuis === cfg.werk) {
+      this.logger.warn(`knop ${context} heeft dezelfde thuis- en werkingang (${cfg.thuis}); wisselen doet dan niets`);
+    }
     if (cfg.geheugenstand) {
       // ADR-0003: dit scherm meldt zijn ingang niet betrouwbaar, dus niet meten en niet pollen;
       // de knop toont wat hij het laatst gestuurd heeft. Deze tak staat vóór de
@@ -217,9 +220,6 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       // verbonden) kan een leeg knopbeeld betekenen.
       await teken(knopDataUrl(this.laatsteStand.get(context) ?? "onbekend", cfg.orientatie));
       return;
-    }
-    if (cfg.thuis === cfg.werk) {
-      this.logger.warn(`knop ${context} heeft dezelfde thuis- en werkingang (${cfg.thuis}); wisselen doet dan niets`);
     }
     this.gevolgdeConfiguratie.set(context, cfg);
     // Opnieuw volgen vervangt de vorige luisteraar van deze knop; nooit twee polls voor één knop.
