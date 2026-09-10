@@ -35,3 +35,7 @@ _Avoid_: toggle, switch, omschakelen
 **Stand**:
 Wat de knop van een Scherm toont: PC (Thuisingang gemeten), WERK (Werkingang gemeten, of niet leesbaar) of ONBEKEND (een andere Ingang gemeten, of de knop is nog niet volledig ingesteld).
 _Avoid_: status, state
+
+**Geheugenstand**:
+Keuze per knop voor een Scherm dat zijn Ingang niet betrouwbaar meldt: de Stand is dan wat de knop het laatst succesvol gestuurd heeft, niet wat gemeten is.
+_Avoid_: memory mode, onthouden stand, blind wisselen
