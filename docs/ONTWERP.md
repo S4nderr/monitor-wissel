@@ -25,7 +25,7 @@ Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI 
 
 ## Instellingen per knop (Property Inspector)
 
-- **Scherm**: keuzelijst van gevonden schermen, getoond als `HP E273q (…02H7)`; intern herkend op model plus serienummer.
+- **Scherm**: keuzelijst van gevonden schermen, getoond als `HP E273q (…02H4)` — de naam plus de laatste vier tekens van het serienummer, puur als label. Intern wordt een Scherm herkend aan zijn Windows-apparaatpad: fabrikantcode plus bus-instantie, bijvoorbeeld `HPN3475#5&10cc6012&0&UID4356`. Dat pad hangt aan de poort waarop de kabel zit; het serienummer speelt in de herkenning geen rol.
 - **Thuisingang** en **Werkingang**: keuzelijst met de codes die het Scherm zelf meldt (decimaal met MCCS-naam, bijvoorbeeld `17 – HDMI 1`), plus per ingang een vrij veld "code handmatig" dat de keuzelijst overstemt (nodig voor de Samsung-codes 5 en 6).
 - **Oriëntatie**: staand of liggend; bepaalt het icoon.
 

@@ -26,6 +26,7 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 ## Ontwikkelen
 
 - `npm test` – eenheidstests (vitest).
+- `npm run typecheck` – TypeScript controleren (`tsc --noEmit`); zit ook vóór `restart` en `pack`.
 - `npm run restart` – bouwen en de plugin in Stream Deck herstarten.
 - `npm run validate` – manifest en map controleren.
 - `npm run pack` – `.streamDeckPlugin`-bestand maken.
@@ -35,3 +36,4 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 
 - HP E273q (serie 6CM81602H4): thuis 17, werk 15; onleesbaar zodra hij de laptop toont (de knop toont dan WERK); springt bij ontbrekend signaal zelf terug.
 - Samsung Odyssey G5: thuis 15, werk 5; altijd leesbaar; blijft op een lege ingang staan.
+- Een scherm wordt herkend aan zijn Windows-apparaatpad, en dat hangt aan de poort. Verhuist de kabel naar een andere aansluiting van de pc, dan vindt de knop "zijn" scherm niet meer: hij toont WERK en waarschuwt bij een druk (in het log staat dan "scherm niet gevonden"). Kies het scherm dan opnieuw in de knopinstellingen.

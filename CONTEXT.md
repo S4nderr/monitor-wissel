@@ -33,5 +33,5 @@ Eén druk op de knop van een Scherm: staat het op de Thuisingang, dan naar de We
 _Avoid_: toggle, switch, omschakelen
 
 **Stand**:
-Wat de knop van een Scherm toont: PC (Thuisingang gemeten) of WERK (Werkingang gemeten, of niet leesbaar).
+Wat de knop van een Scherm toont: PC (Thuisingang gemeten), WERK (Werkingang gemeten, of niet leesbaar) of ONBEKEND (een andere Ingang gemeten, of de knop is nog niet volledig ingesteld).
 _Avoid_: status, state
