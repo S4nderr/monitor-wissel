@@ -17,7 +17,7 @@ Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI 
 
 ## Wisselregel
 
-1. Meet de huidige ingang van het Scherm.
+1. Gebruik de laatste meting als die jonger is dan 5 seconden; meet anders opnieuw.
 2. Stand = PC als de meting gelijk is aan de Thuisingang; WERK als gelijk aan de Werkingang **of als de meting mislukt** (ADR-0002); anders ONBEKEND.
 3. Bij een druk: Stand PC → zet Werkingang; elke andere Stand → zet Thuisingang.
 4. Meet 2 seconden na een druk opnieuw, zodat de knop bijtrekt.
@@ -38,6 +38,7 @@ De plugin tekent het icoon zelf als SVG: een staand of liggend schermpje met lab
 - Stream Deck 7.1 of hoger, SDK `@elgato/streamdeck` 2.x, plugin-UUID `nl.sander.monitor-wissel`, actie-UUID `nl.sander.monitor-wissel.wissel-ingang`.
 - TypeScript, gebundeld naar `bin/plugin.js`; Stream Deck levert de Node 24-runtime.
 - DDC/CI via een gebundeld PowerShell-script `ps/ddc.ps1` in de pluginmap, onzichtbaar gestart (ADR-0001), met JSON-uitvoer.
+- Eén PowerShell-aanroep tegelijk via een prioriteitswachtrij: een knopdruk (lezen en zetten) gaat vóór polls en schermlijsten, en de schermlijst wordt 60 seconden onthouden zodat de Property Inspector niet drie keer `list` afwacht.
 - Eenheidstests met vitest voor alle logica zonder Stream Deck of schermen; de rest wordt tegen de echte schermen geverifieerd.
 - Git-repo in `C:\Users\Sander\projects\monitor-wissel`, openbaar op GitHub als `S4nderr/monitor-wissel`.
 - Tijdens ontwikkeling lokaal gekoppeld met de Elgato-CLI; aan het eind verpakt tot een `.streamDeckPlugin`-bestand.
