@@ -1,10 +1,12 @@
 # DDC/CI-brug voor Monitor-wissel (ADR-0001). Uitvoer altijd JSON op stdout.
 param(
-  [Parameter(Position = 0)][ValidateSet("list", "get", "set")][string]$Commando = "list",
+  [Parameter(Position = 0)][string]$Commando = "list",
   [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 $ErrorActionPreference = "Stop"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# New-Object i.p.v. [System.Text.Encoding]::UTF8: die laatste zet een BOM op de eerste byte
+# van stdout in Windows PowerShell 5.1, wat de JSON-parser aan de andere kant breekt.
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 Add-Type @"
 using System;
@@ -70,6 +72,10 @@ function Get-Fysiek([IntPtr]$hm) {
   if ($n -lt 1) { return $null }
   $arr = New-Object Ddc+PHYSICAL_MONITOR[] $n
   if (-not [Ddc]::GetPhysicalMonitorsFromHMONITOR($hm, $n, $arr)) { return $null }
+  # Eén HMONITOR kan meerdere fysieke monitoren opleveren (bv. via een KVM/splitter);
+  # we gebruiken alleen index 0, dus de overige handles moeten meteen vernietigd worden
+  # om een handle-lek te voorkomen.
+  for ($i = 1; $i -lt $arr.Length; $i++) { [void][Ddc]::DestroyPhysicalMonitor($arr[$i].hPhysicalMonitor) }
   return $arr[0].hPhysicalMonitor
 }
 
@@ -80,14 +86,17 @@ function Lees-Ingang([IntPtr]$h) {
 }
 
 function Lees-Ingangen([IntPtr]$h) {
+  # Elk return-pad gebruikt de unaire komma (,@(...)) zodat PowerShell het array niet
+  # "uitrolt": zonder komma wordt een leeg array op de pipeline-uitvoer $null (intern
+  # AutomationNull), en dat serialiseert via ConvertTo-Json tot {} in plaats van [].
   $len = 0
-  if (-not [Ddc]::GetCapabilitiesStringLength($h, [ref]$len)) { return @() }
+  if (-not [Ddc]::GetCapabilitiesStringLength($h, [ref]$len)) { return ,@() }
   $sb = New-Object System.Text.StringBuilder ([int]$len)
-  if (-not [Ddc]::CapabilitiesRequestAndCapabilitiesReply($h, $sb, $len)) { return @() }
+  if (-not [Ddc]::CapabilitiesRequestAndCapabilitiesReply($h, $sb, $len)) { return ,@() }
   if ($sb.ToString() -match '60\(([0-9A-Fa-f ]+)\)') {
-    return @($Matches[1].Trim() -split '\s+' | ForEach-Object { [Convert]::ToInt32($_, 16) } | Sort-Object -Unique)
+    return ,@($Matches[1].Trim() -split '\s+' | ForEach-Object { [Convert]::ToInt32($_, 16) } | Sort-Object -Unique)
   }
-  return @()
+  return ,@()
 }
 
 function Alle-Schermen() {
@@ -111,7 +120,7 @@ switch ($Commando) {
         naam = if ($info) { $info.naam } else { $s.id }
         serie = if ($info) { $info.serie } else { "" }
         huidig = if ($null -ne $h) { Lees-Ingang $h } else { $null }
-        ingangen = if ($null -ne $h) { Lees-Ingangen $h } else { @() }
+        ingangen = if ($null -ne $h) { Lees-Ingangen $h } else { ,@() }
       }
       if ($null -ne $h) { [void][Ddc]::DestroyPhysicalMonitor($h) }
     }
@@ -130,7 +139,12 @@ switch ($Commando) {
   }
   "set" {
     if ($Rest.Count -lt 2) { ConvertTo-Json @{ ok = $false; fout = "gebruik: set <id> <code>" } -Compress; exit 0 }
-    $doelId = $Rest[0]; $code = [int]$Rest[1]
+    $doelId = $Rest[0]; $codeRuw = $Rest[1]
+    if ($codeRuw -notmatch '^\d{1,3}$' -or [int]$codeRuw -gt 255) {
+      ConvertTo-Json -InputObject @{ ok = $false; fout = "ongeldige code: $codeRuw" } -Compress
+      exit 0
+    }
+    $code = [int]$codeRuw
     $resultaat = @{ ok = $false; fout = "scherm niet gevonden: $doelId" }
     foreach ($s in Alle-Schermen) {
       if ($s.id -eq $doelId) {
@@ -143,5 +157,8 @@ switch ($Commando) {
       }
     }
     ConvertTo-Json -InputObject $resultaat -Compress
+  }
+  default {
+    ConvertTo-Json -InputObject @{ ok = $false; fout = "onbekend commando: $Commando" } -Compress
   }
 }
