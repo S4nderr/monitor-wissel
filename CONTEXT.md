@@ -41,5 +41,5 @@ Keuze per knop voor een Scherm dat zijn Ingang niet betrouwbaar meldt: de Stand 
 _Avoid_: memory mode, onthouden stand, blind wisselen
 
 **Sneltoets**:
-Een toets op het toetsenbord (zoals G1 of G2) die dezelfde Wissel van een knop uitvoert als een druk op die knop; elke knop kan een Sneltoetsnaam krijgen waarmee hij van buiten aangesproken wordt.
+Een toets F13 t/m F24 die per knop is ingesteld en die de plugin zelf bewaakt; een druk erop (bijvoorbeeld G1 dat via G HUB F21 stuurt) voert dezelfde Wissel uit als een druk op die knop. De Sneltoetsnaam is de naam waarmee externe programma's diezelfde knop via een deeplink aanspreken.
 _Avoid_: hotkey, macro, G-key
