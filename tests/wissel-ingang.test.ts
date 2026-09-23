@@ -438,11 +438,34 @@ describe("WisselIngang via een Sneltoets (toets, ADR-0004)", () => {
   const laatsteMapping = (l: ReturnType<typeof nepLuisteraar>) => l.stel.mock.calls.at(-1)?.[0];
 
   it("geeft de toets van een verschenen knop door aan de luisteraar", async () => {
+    vi.useFakeTimers();
     const brug = nepBrug({ hp: 17 });
     const { actie, luisteraar } = maakMetLuisteraar(brug);
     const hp = nepKnop("ctx-hp");
     await actie.onWillAppear(verschijn(hp, { ...VOLLEDIG, sneltoetsToets: "F21" }));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"]]));
+    vi.useRealTimers();
+  });
+
+  it("bundelt twee snelle onWillAppears in één stel-aanroep", async () => {
+    vi.useFakeTimers();
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    const samsung = nepKnop("ctx-samsung");
+    await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsToets: "F21" }));
+    await actie.onWillAppear(verschijn(samsung, { ...GEHEUGEN, sneltoetsToets: "F22" }));
+    expect(luisteraar.stel).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(luisteraar.stel).toHaveBeenCalledTimes(1);
+    expect(laatsteMapping(luisteraar)).toEqual(
+      new Map([
+        ["F21", "ctx-hp"],
+        ["F22", "ctx-samsung"],
+      ]),
+    );
+    vi.useRealTimers();
   });
 
   it("wisselt bij een toetsdruk precies zoals bij een druk op de knop", async () => {
@@ -461,30 +484,40 @@ describe("WisselIngang via een Sneltoets (toets, ADR-0004)", () => {
   });
 
   it("haalt een verdwenen knop uit de toetsen", async () => {
+    vi.useFakeTimers();
     const brug = nepBrug({ hp: 17 });
     const { actie, luisteraar } = maakMetLuisteraar(brug);
     const hp = nepKnop("ctx-hp");
     const samsung = nepKnop("ctx-samsung");
     await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsToets: "F21" }));
     await actie.onWillAppear(verschijn(samsung, { ...GEHEUGEN, sneltoetsToets: "F22" }));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"], ["F22", "ctx-samsung"]]));
     await actie.onWillDisappear(verdwijn(hp));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map([["F22", "ctx-samsung"]]));
+    vi.useRealTimers();
   });
 
   it("volgt een gewijzigde of gewiste toets in de instellingen", async () => {
+    vi.useFakeTimers();
     const brug = nepBrug({ hp: 17 });
     const { actie, luisteraar } = maakMetLuisteraar(brug);
     const hp = nepKnop("ctx-hp");
     await actie.onWillAppear(verschijn(hp, GEHEUGEN));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map());
     await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "F23" }));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map([["F23", "ctx-hp"]]));
     await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "" }));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map());
+    vi.useRealTimers();
   });
 
   it("laat bij twee knoppen met dezelfde toets de eerste winnen en waarschuwt één keer", async () => {
+    vi.useFakeTimers();
     const brug = nepBrug({ hp: 17 });
     const { actie, luisteraar, logger } = maakMetLuisteraar(brug);
     const hp = nepKnop("ctx-hp");
@@ -492,9 +525,11 @@ describe("WisselIngang via een Sneltoets (toets, ADR-0004)", () => {
     await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsToets: "F21" }));
     await actie.onWillAppear(verschijn(samsung, { ...GEHEUGEN, sneltoetsToets: "F21" }));
     await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "F21", orientatie: "liggend" }));
+    await vi.advanceTimersByTimeAsync(50);
     expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"]]));
     const meldingen = logger.regels.filter((r) => r.includes("staat op meer knoppen"));
     expect(meldingen).toEqual(["sneltoets F21 staat op meer knoppen; alleen knop ctx-hp reageert, ctx-samsung niet"]);
+    vi.useRealTimers();
   });
 
   it("meet niet opnieuw als alleen de sneltoets-toets verandert", async () => {

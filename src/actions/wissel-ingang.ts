@@ -33,6 +33,14 @@ export type ToetsLuisteraar = {
 /** Zo oud mag de laatste meting zijn om bij een knopdruk hergebruikt te worden: één pollronde. */
 const MEETVERSHEID_MS = 5000;
 
+/**
+ * Bundelduur voor stelSneltoetsen(): bij het verschijnen van meerdere knoppen (bv. bij het
+ * opstarten) komt er per knop een apart appear/settings-event binnen. Riep elk daarvan meteen
+ * luisteraar.stel() aan, dan herstart het PowerShell-proces (spawn + Add-Type compileren, ~1-2 s)
+ * telkens opnieuw. Pas na deze stilte gaat de verzamelde mapping in één keer weg.
+ */
+const SNELTOETSEN_BUNDEL_MS = 50;
+
 /** Twee configuraties zijn gelijk als alles wat de knop laat doen en tonen gelijk is. */
 function zelfdeConfiguratie(a: KnopConfiguratie | undefined, b: KnopConfiguratie): boolean {
   return (
@@ -66,6 +74,8 @@ export class WisselIngang extends SingletonAction<Instellingen> {
   private readonly schermenCache: SchermenCache;
   /** Toetsconflicten ("F21 ctx") die al gemeld zijn, zodat het log er niet bij elke wijziging vol van loopt. */
   private readonly gemeldeToetsconflicten = new Set<string>();
+  /** Lopende bundeltimer voor stelSneltoetsen(); een nieuwe wijziging verzet hem in plaats van er nog een te starten. */
+  private sneltoetsenTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly brug: DdcBrug,
@@ -131,7 +141,16 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       this.logger.warn(`sneltoets zonder knop: ${gezocht}`);
       return 0;
     }
-    await Promise.all(treffers.map(({ knop, instellingen }) => this.voerWisselUit(knop, instellingen)));
+    await Promise.all(
+      treffers.map(async ({ knop, instellingen }) => {
+        const gewisseld = await this.voerWisselUit(knop, instellingen);
+        if (gewisseld) {
+          this.logger.info(`sneltoets ${gezocht}: knop ${knop.id} gewisseld`);
+        } else {
+          this.logger.info(`sneltoets ${gezocht}: knop ${knop.id} niet gewisseld (bezig of onvolledig)`);
+        }
+      }),
+    );
     return treffers.length;
   }
 
@@ -141,18 +160,38 @@ export class WisselIngang extends SingletonAction<Instellingen> {
    */
   async wisselViaToets(context: string): Promise<void> {
     const instellingen = this.instellingen.get(context);
-    const knop = instellingen ? [...this.zichtbareKnoppen()].find((k) => k.id === context) : undefined;
     const toets = normaliseerToets(instellingen?.sneltoetsToets) ?? "?";
-    if (!knop || !instellingen) {
-      this.logger.warn(`sneltoets ${toets} zonder zichtbare knop: ${context}`);
-      return;
-    }
     try {
-      await this.voerWisselUit(knop, instellingen);
-      this.logger.info(`sneltoets ${toets}: knop ${context} gewisseld`);
+      // De opzoeking staat bewust in deze try: zichtbareKnoppen() leest this.actions uit het
+      // SDK-register en mag deze functie, die los van elke knopdruk draait, nooit laten gooien.
+      const knop = instellingen ? [...this.zichtbareKnoppen()].find((k) => k.id === context) : undefined;
+      if (!knop || !instellingen) {
+        this.logger.warn(`sneltoets ${toets} zonder zichtbare knop: ${context}`);
+        return;
+      }
+      const gewisseld = await this.voerWisselUit(knop, instellingen);
+      if (gewisseld) {
+        this.logger.info(`sneltoets ${toets}: knop ${context} gewisseld`);
+      } else {
+        this.logger.info(`sneltoets ${toets}: knop ${context} niet gewisseld (bezig of onvolledig)`);
+      }
     } catch (fout) {
       this.logger.warn(`sneltoets ${toets} mislukt: ${fout instanceof Error ? fout.message : String(fout)}`);
     }
+  }
+
+  /**
+   * Vraagt een (gebundelde) doorgifte van de toetsen aan de luisteraar aan. Meerdere appear/
+   * disappear/settings-events kort na elkaar (bv. bij het opstarten) leveren zo één stel()-aanroep
+   * op in plaats van spawn -> kill -> spawn per knop.
+   */
+  private stelSneltoetsen(): void {
+    if (!this.luisteraar) return;
+    if (this.sneltoetsenTimer) clearTimeout(this.sneltoetsenTimer);
+    this.sneltoetsenTimer = setTimeout(() => {
+      this.sneltoetsenTimer = undefined;
+      this.stelSneltoetsenNu();
+    }, SNELTOETSEN_BUNDEL_MS);
   }
 
   /**
@@ -160,7 +199,7 @@ export class WisselIngang extends SingletonAction<Instellingen> {
    * bevat precies de verschenen knoppen, in volgorde van verschijnen; hebben twee knoppen dezelfde
    * toets, dan wint de eerste en melden we het conflict één keer.
    */
-  private stelSneltoetsen(): void {
+  private stelSneltoetsenNu(): void {
     if (!this.luisteraar) return;
     const mapping = new Map<string, string>();
     for (const [context, instellingen] of this.instellingen) {
@@ -190,25 +229,28 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     return this.actions.toArray().filter((a): a is KeyAction<Instellingen> => a.isKey());
   }
 
-  /** De Wissel van één knop; gedeeld door een knopdruk en een Sneltoets. */
-  private async voerWisselUit(knop: KeyAction<Instellingen>, instellingen: Instellingen): Promise<void> {
+  /**
+   * De Wissel van één knop; gedeeld door een knopdruk en een Sneltoets. Geeft terug of er
+   * daadwerkelijk een zetopdracht is verstuurd én geslaagd, zodat de aanroeper eerlijk kan loggen
+   * (bezig/onvolledig/mislukt logt hier zelf al, maar telt niet als "gewisseld").
+   */
+  private async voerWisselUit(knop: KeyAction<Instellingen>, instellingen: Instellingen): Promise<boolean> {
     const cfg = configuratie(instellingen);
     if (!cfg) {
       this.logger.warn(`wissel geweigerd: knop ${knop.id} is niet volledig ingesteld`);
       await knop.showAlert();
-      return;
+      return false;
     }
     // Drukt iemand tien keer in zeven seconden, dan wisselen we niet tien keer: de druk die
     // binnenkomt terwijl de vorige wissel nog loopt vervalt zonder DDC-aanroep.
     if (this.wisselBezig.has(knop.id)) {
       this.logger.info(`wissel genegeerd: vorige loopt nog (${knop.id})`);
-      return;
+      return false;
     }
     this.wisselBezig.add(knop.id);
     try {
       if (cfg.geheugenstand) {
-        await this.wisselUitGeheugen(knop, instellingen, cfg);
-        return;
+        return await this.wisselUitGeheugen(knop, instellingen, cfg);
       }
       // De poll meet elke 5 s; is die meting nog vers, dan slaan we de leesronde (~0,8 s) over.
       const bekend = this.laatsteMeting.get(knop.id);
@@ -226,17 +268,19 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       );
       if (!resultaat.ok) {
         await knop.showAlert();
-        return;
+        return false;
       }
       // Optimistisch tonen; de hermeting na 2 s corrigeert als het scherm niet is gewisseld.
       const nieuweStand: Stand = stand === "pc" ? "werk" : "pc";
       this.laatsteStand.set(knop.id, nieuweStand);
       await knop.setImage(knopDataUrl(nieuweStand, cfg.orientatie));
       this.meter.meetStraks(2000);
+      return true;
     } catch (fout) {
       // De brug vangt zijn eigen fouten af, maar een toekomstige versie mag deze knop niet slopen.
       this.logger.warn(`wissel mislukt: ${fout instanceof Error ? fout.message : String(fout)} (${knop.id})`);
       await knop.showAlert();
+      return false;
     } finally {
       this.wisselBezig.delete(knop.id);
     }
@@ -266,7 +310,7 @@ export class WisselIngang extends SingletonAction<Instellingen> {
    * ADR-0003: wisselen zonder te meten. De stand komt uit het geheugen in de knopinstellingen en
    * de nieuwe kant wordt daar na een geslaagde zetopdracht weer in bewaard, dus ook na een herstart.
    */
-  private async wisselUitGeheugen(knop: KeyAction<Instellingen>, instellingen: Instellingen, cfg: KnopConfiguratie): Promise<void> {
+  private async wisselUitGeheugen(knop: KeyAction<Instellingen>, instellingen: Instellingen, cfg: KnopConfiguratie): Promise<boolean> {
     // De onthouden instellingen lopen nooit achter op de payload: wij schrijven ze hieronder zelf bij.
     const huidigeInstellingen = this.instellingen.get(knop.id) ?? instellingen;
     const stand = standUitGeheugen(huidigeInstellingen.onthoudenStand);
@@ -278,7 +322,7 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     if (!resultaat.ok) {
       // Mislukt: het geheugen blijft staan, zodat de volgende druk dezelfde kant opnieuw probeert.
       await knop.showAlert();
-      return;
+      return false;
     }
     const onthoudenStand = onthoudNaZet(doel, cfg.werk);
     // Samenvoegen, nooit vervangen: setSettings schrijft de hele instellingenset van de knop.
@@ -287,6 +331,7 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     this.laatsteStand.set(knop.id, onthoudenStand);
     await knop.setSettings(nieuweInstellingen);
     await knop.setImage(knopDataUrl(onthoudenStand, cfg.orientatie));
+    return true;
   }
 
   /** Registreert de knop bij de meter (of haalt hem eraf als hij onvolledig is) en tekent direct. */
