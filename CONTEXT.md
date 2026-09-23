@@ -39,3 +39,7 @@ _Avoid_: status, state
 **Geheugenstand**:
 Keuze per knop voor een Scherm dat zijn Ingang niet betrouwbaar meldt: de Stand is dan wat de knop het laatst succesvol gestuurd heeft, niet wat gemeten is.
 _Avoid_: memory mode, onthouden stand, blind wisselen
+
+**Sneltoets**:
+Een toets op het toetsenbord (zoals G1 of G2) die dezelfde Wissel van een knop uitvoert als een druk op die knop; elke knop kan een Sneltoetsnaam krijgen waarmee hij van buiten aangesproken wordt.
+_Avoid_: hotkey, macro, G-key
