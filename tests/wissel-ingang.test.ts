@@ -311,3 +311,102 @@ describe("WisselIngang met Geheugenstand (ADR-0003)", () => {
     expect(brug.zetIngang).toHaveBeenNthCalledWith(2, "hp", 15, "hoog");
   });
 });
+
+describe("WisselIngang via een Sneltoets", () => {
+  // De echte zichtbareKnoppen() leest this.actions uit het SDK-register; hier geven we de
+  // nepknoppen zelf op, zoals ze op de huidige Stream Deck-pagina zouden staan.
+  class MetZichtbareKnoppen extends WisselIngang {
+    zichtbaar: Knop[] = [];
+    protected override zichtbareKnoppen() {
+      return this.zichtbaar as never;
+    }
+  }
+  function maakMetKnoppen(brug: ReturnType<typeof nepBrug>) {
+    const logger = nepLogger();
+    const meter = new Meter(brug, 600000);
+    opruimen = () => meter.stop();
+    return { actie: new MetZichtbareKnoppen(brug, meter, logger), logger };
+  }
+
+  it("wisselt de knop met die naam, ongeacht hoofdletters en spaties eromheen", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maakMetKnoppen(brug);
+    const hp = nepKnop("ctx-hp");
+    const ander = nepKnop("ctx-ander");
+    actie.zichtbaar = [hp, ander];
+    await actie.onWillAppear(verschijn(hp, { ...VOLLEDIG, sneltoetsnaam: "HP " }));
+    await actie.onWillAppear(verschijn(ander, { ...VOLLEDIG, sneltoetsnaam: "samsung" }));
+    hp.setImage.mockClear();
+    ander.setImage.mockClear();
+    expect(await actie.wisselViaSneltoets("hp")).toBe(1);
+    // Zelfde pad als een druk: verse poll-meting 17 (thuis), dus 15 (werk) erheen.
+    expect(brug.zetIngang).toHaveBeenCalledTimes(1);
+    expect(brug.zetIngang).toHaveBeenCalledWith("hp", 15, "hoog");
+    expect(hp.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EWERK%3C"));
+    expect(ander.setImage).not.toHaveBeenCalled();
+  });
+
+  it("geeft 0 en waarschuwt bij een onbekende naam, zonder DDC-opdracht", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, logger } = maakMetKnoppen(brug);
+    const hp = nepKnop("ctx-hp");
+    actie.zichtbaar = [hp];
+    await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsnaam: "hp" }));
+    expect(await actie.wisselViaSneltoets("bestaatniet")).toBe(0);
+    expect(logger.regels.join("\n")).toContain("sneltoets zonder knop: bestaatniet");
+    expect(brug.leesIngangen).not.toHaveBeenCalled();
+    expect(brug.zetIngang).not.toHaveBeenCalled();
+    expect(hp.showAlert).not.toHaveBeenCalled();
+  });
+
+  it("spreekt een knop die niet zichtbaar is niet aan", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, logger } = maakMetKnoppen(brug);
+    const hp = nepKnop("ctx-hp");
+    await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsnaam: "hp" }));
+    actie.zichtbaar = [];
+    expect(await actie.wisselViaSneltoets("hp")).toBe(0);
+    expect(brug.zetIngang).not.toHaveBeenCalled();
+    expect(logger.regels.join("\n")).toContain("sneltoets zonder knop: hp");
+  });
+
+  it("werkt het geheugen precies zo bij als een druk op de knop", async () => {
+    const start: Instellingen = { ...GEHEUGEN, onthoudenStand: "pc", sneltoetsnaam: "hp" };
+
+    const brugDruk = nepBrug({ hp: 17 });
+    const { actie: viaDruk } = maakMetKnoppen(brugDruk);
+    const knopDruk = nepKnop("ctx-hp");
+    await viaDruk.onWillAppear(verschijn(knopDruk, start));
+    knopDruk.setImage.mockClear();
+    await viaDruk.onKeyDown(druk(knopDruk, start));
+    opruimen?.();
+
+    const brugToets = nepBrug({ hp: 17 });
+    const { actie: viaToets } = maakMetKnoppen(brugToets);
+    const knopToets = nepKnop("ctx-hp");
+    viaToets.zichtbaar = [knopToets];
+    await viaToets.onWillAppear(verschijn(knopToets, start));
+    knopToets.setImage.mockClear();
+    expect(await viaToets.wisselViaSneltoets("HP")).toBe(1);
+
+    expect(brugToets.zetIngang.mock.calls).toEqual(brugDruk.zetIngang.mock.calls);
+    expect(brugToets.zetIngang).toHaveBeenCalledWith("hp", 15, "hoog");
+    expect(knopToets.setSettings.mock.calls).toEqual(knopDruk.setSettings.mock.calls);
+    expect(knopToets.setSettings).toHaveBeenCalledWith({ ...start, onthoudenStand: "werk" });
+    expect(knopToets.setImage.mock.calls).toEqual(knopDruk.setImage.mock.calls);
+    expect(brugToets.leesIngangen).not.toHaveBeenCalled();
+
+    // En de volgende sneltoets leest dat verse geheugen: terug naar de thuisingang.
+    await viaToets.wisselViaSneltoets("hp");
+    expect(brugToets.zetIngang).toHaveBeenLastCalledWith("hp", 17, "hoog");
+  });
+
+  it("meet niet opnieuw als alleen de sneltoetsnaam verandert", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maakMetKnoppen(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, VOLLEDIG));
+    await actie.onDidReceiveSettings(instellingenEvent(knop, { ...VOLLEDIG, sneltoetsnaam: "hp" }));
+    expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
+  });
+});
