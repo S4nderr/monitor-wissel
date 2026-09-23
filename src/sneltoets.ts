@@ -18,7 +18,8 @@ export function normaliseerSneltoetsnaam(naam: string | undefined): string {
 
 /** "/wissel/hp" -> "hp"; undefined als het pad geen sneltoets-opdracht is. */
 export function sneltoetsUitPad(pad: string): string | undefined {
-  const treffer = /^\/wissel\/([^/]+)\/?$/i.exec(pad);
+  // De beginschuine streep is optioneel: Stream Deck stuurt hem nu wel, maar dat is geen belofte.
+  const treffer = /^\/?wissel\/([^/]+)\/?$/i.exec(pad);
   if (!treffer) return undefined;
   let naam: string;
   try {

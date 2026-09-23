@@ -21,6 +21,10 @@ describe("sneltoetsUitPad", () => {
     expect(sneltoetsUitPad("/wissel/mijn%20scherm")).toBe("mijn scherm");
   });
 
+  it("accepteert het pad ook zonder beginschuine streep", () => {
+    expect(sneltoetsUitPad("wissel/hp")).toBe("hp");
+  });
+
   it("weigert paden die geen sneltoets zijn", () => {
     expect(sneltoetsUitPad("/wissel")).toBeUndefined();
     expect(sneltoetsUitPad("/wissel/")).toBeUndefined();
