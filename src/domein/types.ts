@@ -14,6 +14,8 @@ export type Instellingen = {
   geheugenstand?: boolean;
   /** ADR-0003: de laatst succesvol gestuurde kant; alleen in gebruik bij geheugenstand. */
   onthoudenStand?: "pc" | "werk";
+  /** Sneltoets: naam waarmee een deeplink (/wissel/<naam>) deze knop laat wisselen; vergeleken zonder hoofdletters en spaties eromheen. */
+  sneltoetsnaam?: string;
 };
 
 export interface Scherm {

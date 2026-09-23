@@ -2,6 +2,7 @@ import streamDeck, {
   action,
   SingletonAction,
   type DidReceiveSettingsEvent,
+  type KeyAction,
   type KeyDownEvent,
   type SendToPluginEvent,
   type WillAppearEvent,
@@ -13,6 +14,7 @@ import { SchermenCache } from "../ddc/schermen-cache.js";
 import { configuratie, ingangItems, schermItems, type KnopConfiguratie } from "../domein/knop-configuratie.js";
 import type { Instellingen, Meting, Stand } from "../domein/types.js";
 import { bepaalDoel, bepaalStand, onthoudNaZet, standUitGeheugen } from "../domein/wisselregel.js";
+import { normaliseerSneltoetsnaam } from "../sneltoets.js";
 import { knopDataUrl } from "../weergave/knop-svg.js";
 
 /** Wat de Property Inspector vraagt: welke keuzelijst gevuld moet worden. */
@@ -89,26 +91,62 @@ export class WisselIngang extends SingletonAction<Instellingen> {
   }
 
   override async onKeyDown(ev: KeyDownEvent<Instellingen>): Promise<void> {
-    const cfg = configuratie(ev.payload.settings);
+    await this.voerWisselUit(ev.action, ev.payload.settings);
+  }
+
+  /**
+   * Sneltoets: voert de Wissel uit van elke zichtbare knop met deze Sneltoetsnaam, precies zoals
+   * een druk op die knop. Geeft terug hoeveel knoppen er aangesproken zijn (normaal één).
+   */
+  async wisselViaSneltoets(naam: string): Promise<number> {
+    const gezocht = normaliseerSneltoetsnaam(naam);
+    if (gezocht === "") {
+      this.logger.warn("sneltoets zonder naam genegeerd");
+      return 0;
+    }
+    const treffers: { knop: KeyAction<Instellingen>; instellingen: Instellingen }[] = [];
+    for (const knop of this.zichtbareKnoppen()) {
+      // De onthouden instellingen, niet getSettings(): die zouden een didReceiveSettings uitlokken.
+      const instellingen = this.instellingen.get(knop.id);
+      if (instellingen && normaliseerSneltoetsnaam(instellingen.sneltoetsnaam) === gezocht) {
+        treffers.push({ knop, instellingen });
+      }
+    }
+    if (treffers.length === 0) {
+      this.logger.warn(`sneltoets zonder knop: ${gezocht}`);
+      return 0;
+    }
+    await Promise.all(treffers.map(({ knop, instellingen }) => this.voerWisselUit(knop, instellingen)));
+    return treffers.length;
+  }
+
+  /** De knoppen van deze actie die nu op een Stream Deck-pagina zichtbaar zijn; tests vervangen dit. */
+  protected zichtbareKnoppen(): Iterable<KeyAction<Instellingen>> {
+    return this.actions.toArray().filter((a): a is KeyAction<Instellingen> => a.isKey());
+  }
+
+  /** De Wissel van één knop; gedeeld door een knopdruk en een Sneltoets. */
+  private async voerWisselUit(knop: KeyAction<Instellingen>, instellingen: Instellingen): Promise<void> {
+    const cfg = configuratie(instellingen);
     if (!cfg) {
-      this.logger.warn(`wissel geweigerd: knop ${ev.action.id} is niet volledig ingesteld`);
-      await ev.action.showAlert();
+      this.logger.warn(`wissel geweigerd: knop ${knop.id} is niet volledig ingesteld`);
+      await knop.showAlert();
       return;
     }
     // Drukt iemand tien keer in zeven seconden, dan wisselen we niet tien keer: de druk die
     // binnenkomt terwijl de vorige wissel nog loopt vervalt zonder DDC-aanroep.
-    if (this.wisselBezig.has(ev.action.id)) {
-      this.logger.info(`wissel genegeerd: vorige loopt nog (${ev.action.id})`);
+    if (this.wisselBezig.has(knop.id)) {
+      this.logger.info(`wissel genegeerd: vorige loopt nog (${knop.id})`);
       return;
     }
-    this.wisselBezig.add(ev.action.id);
+    this.wisselBezig.add(knop.id);
     try {
       if (cfg.geheugenstand) {
-        await this.wisselUitGeheugen(ev, cfg);
+        await this.wisselUitGeheugen(knop, instellingen, cfg);
         return;
       }
       // De poll meet elke 5 s; is die meting nog vers, dan slaan we de leesronde (~0,8 s) over.
-      const bekend = this.laatsteMeting.get(ev.action.id);
+      const bekend = this.laatsteMeting.get(knop.id);
       const versGenoeg = bekend !== undefined && Date.now() - bekend.tijd < MEETVERSHEID_MS;
       const bron = versGenoeg ? "cache" : "vers";
       const meting = versGenoeg ? bekend.meting : ((await this.brug.leesIngangen([cfg.schermId], "hoog")).get(cfg.schermId) ?? null);
@@ -117,25 +155,25 @@ export class WisselIngang extends SingletonAction<Instellingen> {
       const resultaat = await this.brug.zetIngang(cfg.schermId, doel, "hoog");
       // Geslaagd of niet: na een zetopdracht weten we niet meer op welke ingang het scherm staat,
       // dus gaat de onthouden meting weg; de hermeting na 2 s vult hem opnieuw.
-      this.laatsteMeting.delete(ev.action.id);
+      this.laatsteMeting.delete(knop.id);
       this.logger.info(
         `wissel scherm=${cfg.schermId} meting=${meting ?? "leesfout"} stand=${stand} gestuurd=${doel} ok=${resultaat.ok}${resultaat.fout ? ` fout=${resultaat.fout}` : ""} bron=${bron}`,
       );
       if (!resultaat.ok) {
-        await ev.action.showAlert();
+        await knop.showAlert();
         return;
       }
       // Optimistisch tonen; de hermeting na 2 s corrigeert als het scherm niet is gewisseld.
       const nieuweStand: Stand = stand === "pc" ? "werk" : "pc";
-      this.laatsteStand.set(ev.action.id, nieuweStand);
-      await ev.action.setImage(knopDataUrl(nieuweStand, cfg.orientatie));
+      this.laatsteStand.set(knop.id, nieuweStand);
+      await knop.setImage(knopDataUrl(nieuweStand, cfg.orientatie));
       this.meter.meetStraks(2000);
     } catch (fout) {
       // De brug vangt zijn eigen fouten af, maar een toekomstige versie mag deze knop niet slopen.
-      this.logger.warn(`wissel mislukt: ${fout instanceof Error ? fout.message : String(fout)} (${ev.action.id})`);
-      await ev.action.showAlert();
+      this.logger.warn(`wissel mislukt: ${fout instanceof Error ? fout.message : String(fout)} (${knop.id})`);
+      await knop.showAlert();
     } finally {
-      this.wisselBezig.delete(ev.action.id);
+      this.wisselBezig.delete(knop.id);
     }
   }
 
@@ -163,9 +201,9 @@ export class WisselIngang extends SingletonAction<Instellingen> {
    * ADR-0003: wisselen zonder te meten. De stand komt uit het geheugen in de knopinstellingen en
    * de nieuwe kant wordt daar na een geslaagde zetopdracht weer in bewaard, dus ook na een herstart.
    */
-  private async wisselUitGeheugen(ev: KeyDownEvent<Instellingen>, cfg: KnopConfiguratie): Promise<void> {
+  private async wisselUitGeheugen(knop: KeyAction<Instellingen>, instellingen: Instellingen, cfg: KnopConfiguratie): Promise<void> {
     // De onthouden instellingen lopen nooit achter op de payload: wij schrijven ze hieronder zelf bij.
-    const huidigeInstellingen = this.instellingen.get(ev.action.id) ?? ev.payload.settings;
+    const huidigeInstellingen = this.instellingen.get(knop.id) ?? instellingen;
     const stand = standUitGeheugen(huidigeInstellingen.onthoudenStand);
     const doel = bepaalDoel(stand, cfg.thuis, cfg.werk);
     const resultaat = await this.brug.zetIngang(cfg.schermId, doel, "hoog");
@@ -174,16 +212,16 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     );
     if (!resultaat.ok) {
       // Mislukt: het geheugen blijft staan, zodat de volgende druk dezelfde kant opnieuw probeert.
-      await ev.action.showAlert();
+      await knop.showAlert();
       return;
     }
     const onthoudenStand = onthoudNaZet(doel, cfg.werk);
     // Samenvoegen, nooit vervangen: setSettings schrijft de hele instellingenset van de knop.
     const nieuweInstellingen: Instellingen = { ...huidigeInstellingen, onthoudenStand };
-    this.instellingen.set(ev.action.id, nieuweInstellingen);
-    this.laatsteStand.set(ev.action.id, onthoudenStand);
-    await ev.action.setSettings(nieuweInstellingen);
-    await ev.action.setImage(knopDataUrl(onthoudenStand, cfg.orientatie));
+    this.instellingen.set(knop.id, nieuweInstellingen);
+    this.laatsteStand.set(knop.id, onthoudenStand);
+    await knop.setSettings(nieuweInstellingen);
+    await knop.setImage(knopDataUrl(onthoudenStand, cfg.orientatie));
   }
 
   /** Registreert de knop bij de meter (of haalt hem eraf als hij onvolledig is) en tekent direct. */
