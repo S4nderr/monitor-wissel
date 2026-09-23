@@ -24,6 +24,19 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 - Is de laatste meting van een knop jonger dan 5 s, dan gebruikt een druk die meting meteen in plaats van eerst opnieuw te meten.
 - Komt een tweede druk binnen terwijl de wissel van de vorige druk nog loopt, dan wordt die genegeerd; er gaat geen dubbele DDC-opdracht uit.
 
+## Sneltoetsen (G-toetsen)
+
+Een knop kan ook van buiten Stream Deck wisselen, bijvoorbeeld met G1/G2 op het toetsenbord. Geef de knop in zijn instellingen een **Sneltoetsnaam** (bijv. `hp` of `samsung`; hoofdletters en spaties eromheen tellen niet). Elk programma dat deze deeplink opent, voert dan dezelfde Wissel uit als een druk op die knop, inclusief Geheugenstand en knopbeeld:
+
+```
+streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?streamdeck=hidden
+```
+
+- `?streamdeck=hidden` houdt het Stream Deck-venster op de achtergrond (Stream Deck 7.0 of hoger); zonder die toevoeging springt het venster naar voren.
+- Alleen knoppen op de pagina die de Stream Deck nu toont, reageren. Geen knop met die naam: niets gebeurt en het log meldt `sneltoets zonder knop: <naam>`.
+- Proberen vanuit een opdrachtprompt: `start streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp` (wisselt het scherm echt; gebruik een niet-bestaande naam voor een droge proef).
+- G1/G2 via AutoHotkey 2.0: zie [sneltoetsen/README.md](sneltoetsen/README.md). Kort: G HUB zet G1 op F21 en G2 op F22, het script `sneltoetsen/monitor-wissel.ahk` vertaalt F21/F22 naar de deeplinks voor `hp` en `samsung`; dubbelklik om te starten en zet een snelkoppeling in `shell:startup` voor automatisch starten.
+
 ## Ontwikkelen
 
 - `npm test` – eenheidstests (vitest).

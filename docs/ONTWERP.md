@@ -29,6 +29,11 @@ Beide schermen blijven voor Windows aanwezig terwijl ze de laptop tonen. DDC/CI 
 - **Thuisingang** en **Werkingang**: keuzelijst met de codes die het Scherm zelf meldt (decimaal met MCCS-naam, bijvoorbeeld `17 – HDMI 1`), plus per ingang een vrij veld "code handmatig" dat de keuzelijst overstemt (nodig voor de Samsung-codes 5 en 6).
 - **Oriëntatie**: staand of liggend; bepaalt het icoon.
 - **Geheugenstand**: vinkje voor een Scherm dat zijn Ingang niet betrouwbaar meldt (ADR-0003). Aan: de knop meet niet, maar onthoudt de laatst succesvol gestuurde kant in zijn eigen instellingen (dus ook na een herstart) en wisselt op dat geheugen. Uit: gedrag volgens de meting, zoals hierboven.
+- **Sneltoetsnaam**: vrij tekstveld (bijv. `hp`) waarmee een Sneltoets de knop aanspreekt; zie hieronder. Hoort niet bij de configuratie die meten en tekenen bepaalt, dus wijzigen laat de knop niet opnieuw meten.
+
+## Sneltoetsen
+
+Een Sneltoets (bijvoorbeeld G1 of G2 op het toetsenbord, via Logitech G HUB naar F21/F22 en AutoHotkey) opent de Stream Deck-deeplink `streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?streamdeck=hidden`. Stream Deck geeft het pad `/wissel/<naam>` door aan de plugin (`onDidReceiveDeepLink`); daar hoeft niets voor in het manifest. De plugin zoekt onder de zichtbare knoppen van deze actie die met dezelfde Sneltoetsnaam (vergeleken zonder hoofdletters en spaties eromheen) en voert voor elk precies dezelfde Wissel uit als een knopdruk, inclusief Geheugenstand, dubbeldruk-bescherming en knopbeeld. Alleen knoppen op de pagina die de Stream Deck nu toont, reageren: de instellingen van andere knoppen kent de plugin niet. Geen treffer of een onherkenbaar pad levert alleen een logregel op. `?streamdeck=hidden` (passieve deeplink, Stream Deck 7.0+) voorkomt dat het Stream Deck-venster naar voren komt.
 
 ## Weergave op de knop
 
