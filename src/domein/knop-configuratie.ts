@@ -50,6 +50,7 @@ export function configuratie(i: Instellingen): KnopConfiguratie | undefined {
   if (!i.schermId || thuis === undefined || werk === undefined) return undefined;
   // geheugenstand hoort erbij (ADR-0003): het verandert wat de knop doet. onthoudenStand niet:
   // dat wisselt bij elke druk en zou de knop dan telkens opnieuw laten registreren. Ook
-  // sneltoetsnaam niet: die verandert niets aan meten of tekenen, alleen aan wie de knop aanspreekt.
+  // sneltoetsnaam en sneltoetsToets niet: die veranderen niets aan meten of tekenen, alleen aan wie
+  // de knop aanspreekt.
   return { schermId: i.schermId, thuis, werk, orientatie: i.orientatie ?? "staand", geheugenstand: i.geheugenstand === true };
 }

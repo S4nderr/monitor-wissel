@@ -16,6 +16,8 @@ export type Instellingen = {
   onthoudenStand?: "pc" | "werk";
   /** Sneltoets: naam waarmee een deeplink (/wissel/<naam>) deze knop laat wisselen; vergeleken zonder hoofdletters en spaties eromheen. */
   sneltoetsnaam?: string;
+  /** Sneltoets (toets), ADR-0004: "F13" t/m "F24" die de plugin zelf bewaakt, of leeg. */
+  sneltoetsToets?: string;
 };
 
 export interface Scherm {

@@ -15,6 +15,7 @@ import { configuratie, ingangItems, schermItems, type KnopConfiguratie } from ".
 import type { Instellingen, Meting, Stand } from "../domein/types.js";
 import { bepaalDoel, bepaalStand, onthoudNaZet, standUitGeheugen } from "../domein/wisselregel.js";
 import { normaliseerSneltoetsnaam } from "../sneltoets.js";
+import { normaliseerToets } from "../sneltoets-luisteraar.js";
 import { knopDataUrl } from "../weergave/knop-svg.js";
 
 /** Wat de Property Inspector vraagt: welke keuzelijst gevuld moet worden. */
@@ -22,6 +23,12 @@ type DatasourceVerzoek = { event: string; isRefresh?: boolean };
 
 /** Alleen wat deze actie van de logger nodig heeft, zodat de tests hem kunnen vervangen. */
 export type Logger = { info(bericht: string): void; warn(bericht: string): void };
+
+/** Het deel van de SneltoetsLuisteraar dat deze actie gebruikt; tests geven een nepluisteraar. */
+export type ToetsLuisteraar = {
+  stel(mapping: ReadonlyMap<string, string>): void;
+  bijToets(callback: (context: string) => void): void;
+};
 
 /** Zo oud mag de laatste meting zijn om bij een knopdruk hergebruikt te worden: één pollronde. */
 const MEETVERSHEID_MS = 5000;
@@ -57,14 +64,19 @@ export class WisselIngang extends SingletonAction<Instellingen> {
   private readonly gevolgdeConfiguratie = new Map<string, KnopConfiguratie>();
   /** De schermlijst kost ~4 s; één antwoord bedient beide keuzelijsten van de Property Inspector. */
   private readonly schermenCache: SchermenCache;
+  /** Toetsconflicten ("F21 ctx") die al gemeld zijn, zodat het log er niet bij elke wijziging vol van loopt. */
+  private readonly gemeldeToetsconflicten = new Set<string>();
 
   constructor(
     private readonly brug: DdcBrug,
     private readonly meter: Meter,
     private readonly logger: Logger,
+    private readonly luisteraar?: ToetsLuisteraar,
   ) {
     super();
     this.schermenCache = new SchermenCache(brug, 60000);
+    // ADR-0004: de luisteraar meldt de context van de knop waarvan de Sneltoets ingedrukt is.
+    luisteraar?.bijToets((context) => void this.wisselViaToets(context));
   }
 
   override async onWillAppear(ev: WillAppearEvent<Instellingen>): Promise<void> {
@@ -72,6 +84,7 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     if (!ev.action.isKey()) return;
     const knop = ev.action;
     this.instellingen.set(ev.action.id, ev.payload.settings);
+    this.stelSneltoetsen();
     await this.herVolg(ev.action.id, ev.payload.settings, (dataUrl) => knop.setImage(dataUrl));
   }
 
@@ -81,12 +94,14 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     this.laatsteMeting.delete(ev.action.id);
     this.instellingen.delete(ev.action.id);
     this.gevolgdeConfiguratie.delete(ev.action.id);
+    this.stelSneltoetsen();
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<Instellingen>): Promise<void> {
     if (!ev.action.isKey()) return;
     const knop = ev.action;
     this.instellingen.set(ev.action.id, ev.payload.settings);
+    this.stelSneltoetsen();
     await this.herVolg(ev.action.id, ev.payload.settings, (dataUrl) => knop.setImage(dataUrl));
   }
 
@@ -118,6 +133,56 @@ export class WisselIngang extends SingletonAction<Instellingen> {
     }
     await Promise.all(treffers.map(({ knop, instellingen }) => this.voerWisselUit(knop, instellingen)));
     return treffers.length;
+  }
+
+  /**
+   * Sneltoets (toets), ADR-0004: de luisteraar zag de toets van de knop met deze context. Voert
+   * dezelfde Wissel uit als een druk op die knop; gooit nooit, want hij draait los van elke knopdruk.
+   */
+  async wisselViaToets(context: string): Promise<void> {
+    const instellingen = this.instellingen.get(context);
+    const knop = instellingen ? [...this.zichtbareKnoppen()].find((k) => k.id === context) : undefined;
+    const toets = normaliseerToets(instellingen?.sneltoetsToets) ?? "?";
+    if (!knop || !instellingen) {
+      this.logger.warn(`sneltoets ${toets} zonder zichtbare knop: ${context}`);
+      return;
+    }
+    try {
+      await this.voerWisselUit(knop, instellingen);
+      this.logger.info(`sneltoets ${toets}: knop ${context} gewisseld`);
+    } catch (fout) {
+      this.logger.warn(`sneltoets ${toets} mislukt: ${fout instanceof Error ? fout.message : String(fout)}`);
+    }
+  }
+
+  /**
+   * Geeft de luisteraar de toetsen van alle zichtbare knoppen (toets -> context). De instellingen-map
+   * bevat precies de verschenen knoppen, in volgorde van verschijnen; hebben twee knoppen dezelfde
+   * toets, dan wint de eerste en melden we het conflict één keer.
+   */
+  private stelSneltoetsen(): void {
+    if (!this.luisteraar) return;
+    const mapping = new Map<string, string>();
+    for (const [context, instellingen] of this.instellingen) {
+      const toets = normaliseerToets(instellingen.sneltoetsToets);
+      if (toets === undefined) continue;
+      const eerste = mapping.get(toets);
+      if (eerste === undefined) {
+        mapping.set(toets, context);
+        continue;
+      }
+      const conflict = `${toets} ${context}`;
+      if (!this.gemeldeToetsconflicten.has(conflict)) {
+        this.gemeldeToetsconflicten.add(conflict);
+        this.logger.warn(`sneltoets ${toets} staat op meer knoppen; alleen knop ${eerste} reageert, ${context} niet`);
+      }
+    }
+    // Een conflict dat opgelost is, mag later opnieuw gemeld worden.
+    for (const conflict of this.gemeldeToetsconflicten) {
+      const [toets, context] = conflict.split(" ");
+      if (normaliseerToets(this.instellingen.get(context)?.sneltoetsToets) !== toets) this.gemeldeToetsconflicten.delete(conflict);
+    }
+    this.luisteraar.stel(mapping);
   }
 
   /** De knoppen van deze actie die nu op een Stream Deck-pagina zichtbaar zijn; tests vervangen dit. */

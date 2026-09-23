@@ -4,6 +4,7 @@ import { WisselIngang } from "./actions/wissel-ingang.js";
 import { PowerShellDdcBrug } from "./ddc/ddc-brug.js";
 import { Meter } from "./ddc/meter.js";
 import { verwerkDeepLink } from "./sneltoets.js";
+import { SneltoetsLuisteraar } from "./sneltoets-luisteraar.js";
 
 // LogLevel is in SDK 2.1.2 een string-union (type), geen enum, en wordt niet
 // geëxporteerd door @elgato/streamdeck; het niveau geef je als tekst door.
@@ -15,7 +16,11 @@ const brug = new PowerShellDdcBrug(scriptPad, streamDeck.logger);
 // Eén gebundelde meting per 5 s voor alle zichtbare knoppen.
 const meter = new Meter(brug, 5000);
 
-const wisselIngang = new WisselIngang(brug, meter, streamDeck.logger);
+// ADR-0004: eigen toetsluisteraar voor de Sneltoets (toets); start pas als een knop een toets heeft.
+const luisteraarPad = path.resolve(import.meta.dirname, "..", "ps", "sneltoets-luisteraar.ps1");
+const luisteraar = new SneltoetsLuisteraar(luisteraarPad, streamDeck.logger);
+
+const wisselIngang = new WisselIngang(brug, meter, streamDeck.logger, luisteraar);
 streamDeck.actions.registerAction(wisselIngang);
 // Sneltoets: streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<naam> komt hier binnen
 // als pad "/wissel/<naam>" en voert de Wissel uit van de zichtbare knop met die Sneltoetsnaam.
