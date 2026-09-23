@@ -17,20 +17,23 @@ Open in Stream Deck de instellingen van de HP-knop en vul bij **Sneltoetsnaam** 
 
 ## Variant A: alleen G HUB (geen AutoHotkey)
 
-G HUB kan met een macro een programma starten met een argument. We laten hem `rundll32.exe` starten, dat de deeplink zonder venster aan Stream Deck doorgeeft. (Getest op 23 september 2026: `rundll32` en `cmd /c start` bereiken de plugin; `explorer.exe` met de URL niet.)
+G HUB kan met een macro een programma starten met een argument. We laten hem `wscript.exe` starten met één van de twee kleine scriptbestanden in deze map (`wissel-hp.js`, `wissel-samsung.js`); dat script opent de deeplink zonder venster.
+
+Waarom een los bestand: G HUB geeft meerdere argumenten niet betrouwbaar door (getest op 23 september 2026: met `rundll32.exe url.dll,FileProtocolHandler <url>` startte G HUB rundll32 wel, maar de deeplink kwam nooit aan; met één argument zonder spaties werkt het). `explorer.exe <url>` werkt ook niet.
 
 1. Open Logitech G HUB, kies het toetsenbord en ga naar **Toewijzingen** (Assignments).
 2. Kies **Macro's** en klik op **Macro maken**. Naam: `Monitor-wissel HP`. Kies het type **Geen herhaling**.
 3. Klik op **Start nu**, kies **Toepassing starten** (Launch Application) en dan **Nieuwe toepassing** / bewerken. Vul in:
-   - Toepassing: `C:\Windows\System32\rundll32.exe`
-   - Argument: `url.dll,FileProtocolHandler streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp?streamdeck=hidden`
+   - Naam: `wscript`
+   - Bestandspad: `C:\Windows\System32\wscript.exe`
+   - Argumenten: `C:\Users\Sander\projects\monitor-wissel\sneltoetsen\wissel-hp.js` (één argument, geen spaties)
 4. Sla de macro op en sleep hem op **G1**.
-5. Herhaal voor `Monitor-wissel Samsung` met het argument `url.dll,FileProtocolHandler streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/samsung?streamdeck=hidden`, en sleep die op **G2**.
+5. Herhaal voor `Monitor-wissel Samsung` met het argument `C:\Users\Sander\projects\monitor-wissel\sneltoetsen\wissel-samsung.js`, en sleep die op **G2**.
 6. Let op: G HUB-toewijzingen horen bij een profiel. Zet ze in het standaardprofiel (of het profiel dat je normaal gebruikt).
 
-Testen: druk op G1; de HP wisselt en de Stream Deck-knop kleurt mee. Er verschijnt geen venster.
+Testen: druk op G1; de HP wisselt en de Stream Deck-knop kleurt mee. Er verschijnt geen venster. Verplaats je de repo, pas dan het pad in de macro's aan.
 
-Achtergrond: `rundll32 url.dll,FileProtocolHandler <url>` is de ingebouwde Windows-manier om een URL aan de geregistreerde handler (hier Stream Deck) te geven, zoals dubbelklikken op een internetsnelkoppeling.
+Achtergrond: het script roept `WScript.Shell.Run` aan met de deeplink; Windows geeft die aan de geregistreerde handler (Stream Deck), zoals bij dubbelklikken op een internetsnelkoppeling. Hetzelfde kun je vanuit een opdrachtprompt doen met `rundll32 url.dll,FileProtocolHandler <url>` of `start <url>`.
 
 ## Variant B: AutoHotkey 2.0
 
