@@ -35,7 +35,7 @@ streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?str
 - `?streamdeck=hidden` houdt het Stream Deck-venster op de achtergrond (Stream Deck 7.0 of hoger); zonder die toevoeging springt het venster naar voren.
 - Alleen knoppen op de pagina die de Stream Deck nu toont, reageren. Geen knop met die naam: niets gebeurt en het log meldt `sneltoets zonder knop: <naam>`.
 - Proberen vanuit een opdrachtprompt: `start streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp` (wisselt het scherm echt; gebruik een niet-bestaande naam voor een droge proef).
-- G1/G2 via AutoHotkey 2.0: zie [sneltoetsen/README.md](sneltoetsen/README.md). Kort: G HUB zet G1 op F21 en G2 op F22, het script `sneltoetsen/monitor-wissel.ahk` vertaalt F21/F22 naar de deeplinks voor `hp` en `samsung`; dubbelklik om te starten en zet een snelkoppeling in `shell:startup` voor automatisch starten.
+- G1/G2 koppelen: zie [sneltoetsen/README.md](sneltoetsen/README.md). Zonder extra software: een G HUB-macro "Toepassing starten" met `C:\Windows\System32\rundll32.exe` en argument `url.dll,FileProtocolHandler <deeplink>` (geen venster). Alternatief: AutoHotkey 2.0 met `sneltoetsen/monitor-wissel.ahk` (G HUB zet G1/G2 op F21/F22).
 
 ## Ontwikkelen
 
