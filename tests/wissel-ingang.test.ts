@@ -410,3 +410,107 @@ describe("WisselIngang via een Sneltoets", () => {
     expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("WisselIngang via een Sneltoets (toets, ADR-0004)", () => {
+  class MetZichtbareKnoppen extends WisselIngang {
+    zichtbaar: Knop[] = [];
+    protected override zichtbareKnoppen() {
+      return this.zichtbaar as never;
+    }
+  }
+  function nepLuisteraar() {
+    let bijDruk: (context: string) => void = () => {};
+    return {
+      stel: vi.fn((_mapping: ReadonlyMap<string, string>) => {}),
+      bijToets: (cb: (context: string) => void) => {
+        bijDruk = cb;
+      },
+      druk: (context: string) => bijDruk(context),
+    };
+  }
+  function maakMetLuisteraar(brug: ReturnType<typeof nepBrug>) {
+    const logger = nepLogger();
+    const meter = new Meter(brug, 600000);
+    opruimen = () => meter.stop();
+    const luisteraar = nepLuisteraar();
+    return { actie: new MetZichtbareKnoppen(brug, meter, logger, luisteraar), logger, luisteraar };
+  }
+  const laatsteMapping = (l: ReturnType<typeof nepLuisteraar>) => l.stel.mock.calls.at(-1)?.[0];
+
+  it("geeft de toets van een verschenen knop door aan de luisteraar", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    await actie.onWillAppear(verschijn(hp, { ...VOLLEDIG, sneltoetsToets: "F21" }));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"]]));
+  });
+
+  it("wisselt bij een toetsdruk precies zoals bij een druk op de knop", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar, logger } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    actie.zichtbaar = [hp];
+    await actie.onWillAppear(verschijn(hp, { ...VOLLEDIG, sneltoetsToets: "F21" }));
+    hp.setImage.mockClear();
+    luisteraar.druk("ctx-hp");
+    await vi.waitFor(() => expect(logger.regels.join("\n")).toContain("sneltoets F21: knop ctx-hp gewisseld"));
+    // Verse poll-meting 17 (thuis), dus 15 (werk) erheen; zelfde logregel als een knopdruk.
+    expect(brug.zetIngang).toHaveBeenCalledWith("hp", 15, "hoog");
+    expect(hp.setImage).toHaveBeenCalledWith(expect.stringContaining("%3EWERK%3C"));
+    expect(logger.regels.join("\n")).toContain("wissel scherm=hp meting=17 stand=pc gestuurd=15 ok=true bron=cache");
+  });
+
+  it("haalt een verdwenen knop uit de toetsen", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    const samsung = nepKnop("ctx-samsung");
+    await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsToets: "F21" }));
+    await actie.onWillAppear(verschijn(samsung, { ...GEHEUGEN, sneltoetsToets: "F22" }));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"], ["F22", "ctx-samsung"]]));
+    await actie.onWillDisappear(verdwijn(hp));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map([["F22", "ctx-samsung"]]));
+  });
+
+  it("volgt een gewijzigde of gewiste toets in de instellingen", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    await actie.onWillAppear(verschijn(hp, GEHEUGEN));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map());
+    await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "F23" }));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map([["F23", "ctx-hp"]]));
+    await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "" }));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map());
+  });
+
+  it("laat bij twee knoppen met dezelfde toets de eerste winnen en waarschuwt één keer", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar, logger } = maakMetLuisteraar(brug);
+    const hp = nepKnop("ctx-hp");
+    const samsung = nepKnop("ctx-samsung");
+    await actie.onWillAppear(verschijn(hp, { ...GEHEUGEN, sneltoetsToets: "F21" }));
+    await actie.onWillAppear(verschijn(samsung, { ...GEHEUGEN, sneltoetsToets: "F21" }));
+    await actie.onDidReceiveSettings(instellingenEvent(hp, { ...GEHEUGEN, sneltoetsToets: "F21", orientatie: "liggend" }));
+    expect(laatsteMapping(luisteraar)).toEqual(new Map([["F21", "ctx-hp"]]));
+    const meldingen = logger.regels.filter((r) => r.includes("staat op meer knoppen"));
+    expect(meldingen).toEqual(["sneltoets F21 staat op meer knoppen; alleen knop ctx-hp reageert, ctx-samsung niet"]);
+  });
+
+  it("meet niet opnieuw als alleen de sneltoets-toets verandert", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie } = maakMetLuisteraar(brug);
+    const knop = nepKnop();
+    await actie.onWillAppear(verschijn(knop, VOLLEDIG));
+    await actie.onDidReceiveSettings(instellingenEvent(knop, { ...VOLLEDIG, sneltoetsToets: "F21" }));
+    expect(brug.leesIngangen).toHaveBeenCalledTimes(1);
+  });
+
+  it("waarschuwt bij een toets voor een knop die niet (meer) zichtbaar is, zonder DDC-opdracht", async () => {
+    const brug = nepBrug({ hp: 17 });
+    const { actie, luisteraar, logger } = maakMetLuisteraar(brug);
+    luisteraar.druk("ctx-weg");
+    await vi.waitFor(() => expect(logger.regels.join("\n")).toContain("zonder zichtbare knop: ctx-weg"));
+    expect(brug.zetIngang).not.toHaveBeenCalled();
+  });
+});
