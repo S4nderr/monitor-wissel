@@ -1,61 +1,52 @@
 # Sneltoetsen (G-toetsen)
 
-De toetsen G1 en G2 op het toetsenbord kunnen dezelfde Wissel uitvoeren als een druk op de Stream Deck-knop van de HP en de Samsung. De toets opent een Stream Deck-deeplink; de plugin zoekt de knop met die **Sneltoetsnaam** en wisselt hem, inclusief het geheugen van de Geheugenstand en het bijwerken van het knopbeeld.
+De toetsen G1 en G2 op het toetsenbord kunnen dezelfde Wissel uitvoeren als een druk op de Stream Deck-knop van de HP en de Samsung, inclusief het geheugen van de Geheugenstand en het bijwerken van het knopbeeld. De knop moet op de pagina staan die de Stream Deck op dat moment toont; een knop op een andere pagina of in een ander profiel reageert niet.
 
-| Toets | Deeplink |
+**Variant A** heeft geen extra software nodig en is de aanbevolen route. **Variant B** (deeplink, bijvoorbeeld met AutoHotkey) is er voor andere programma's.
+
+## Variant A: Sneltoets (toets), alleen G HUB
+
+G HUB: tab Toetsen, sleep F21 op G1 en F22 op G2; in de knopinstellingen Sneltoets (toets) F21 resp. F22 kiezen; klaar.
+
+Stap voor stap:
+
+1. Open Logitech G HUB, kies het toetsenbord en ga naar **Toewijzingen** (Assignments), tab **Toetsen** (Keys).
+2. Sleep **F21** op **G1** en **F22** op **G2**. G HUB-toewijzingen horen bij een profiel: zet ze in het profiel dat je normaal gebruikt.
+3. Open in Stream Deck de instellingen van de HP-knop en kies bij **Sneltoets (toets)** `F21`; bij de Samsung-knop `F22`.
+
+Testen: druk op G1; de HP wisselt en de Stream Deck-knop kleurt mee. In het pluginlog (`nl.sander.monitor-wissel.sdPlugin/logs/`) staat na het instellen `sneltoets-luisteraar gestart (toetsen: F21, F22)` en na een druk `sneltoets F21: knop <id> gewisseld`.
+
+Hoe het werkt (ADR-0004): de plugin start zelf een onzichtbaar PowerShell-proces (`ps/sneltoets-luisteraar.ps1`) dat de ingestelde toetsen F13 t/m F24 bewaakt. Een G-toets vasthouden geeft één Wissel (G HUB herhaalt de toets, de luisteraar ontdendert 400 ms). Heeft geen enkele zichtbare knop een toets, dan draait er ook geen luisteraar. Geef twee knoppen niet dezelfde toets: dan reageert alleen de eerste en meldt het log een conflict.
+
+Laat AutoHotkey (variant B) niet tegelijk op dezelfde F-toets luisteren: dan wisselt het scherm twee keer.
+
+## Variant B: deeplink, bijvoorbeeld met AutoHotkey 2.0
+
+Elk programma kan een knop laten wisselen door een Stream Deck-deeplink te openen. Geef de knop daarvoor in zijn instellingen een **Sneltoetsnaam**: `hp` voor de HP-knop, `samsung` voor de Samsung-knop (hoofdletters en spaties eromheen maken niet uit).
+
+| Knop | Deeplink |
 |---|---|
-| G1 | `streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp?streamdeck=hidden` |
-| G2 | `streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/samsung?streamdeck=hidden` |
+| HP | `streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp?streamdeck=hidden` |
+| Samsung | `streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/samsung?streamdeck=hidden` |
 
 `?streamdeck=hidden` zorgt dat het Stream Deck-venster niet naar voren springt.
 
-Er zijn twee manieren om de toets aan de deeplink te koppelen. **Variant A** heeft geen extra software nodig en is de aanbevolen route; **variant B** is de oude opzet met AutoHotkey.
+Een G HUB-macro "Toepassing starten" die deze deeplink opent (via rundll32 of wscript) werkt niet betrouwbaar; gebruik voor G-toetsen dus variant A.
 
-## Stap 1 (altijd): knoppen een Sneltoetsnaam geven
+### Met AutoHotkey 2.0
 
-Open in Stream Deck de instellingen van de HP-knop en vul bij **Sneltoetsnaam** `hp` in; bij de Samsung-knop `samsung`. Hoofdletters en spaties eromheen maken niet uit. De knop moet op de pagina staan die de Stream Deck op dat moment toont; een knop op een andere pagina of in een ander profiel reageert niet.
-
-## Variant A: alleen G HUB (geen AutoHotkey)
-
-G HUB kan met een macro een programma starten met een argument. We laten hem `wscript.exe` starten met één van de twee kleine scriptbestanden in deze map (`wissel-hp.js`, `wissel-samsung.js`); dat script opent de deeplink zonder venster.
-
-Waarom een los bestand: G HUB geeft meerdere argumenten niet betrouwbaar door (getest op 23 september 2026: met `rundll32.exe url.dll,FileProtocolHandler <url>` startte G HUB rundll32 wel, maar de deeplink kwam nooit aan; met één argument zonder spaties werkt het). `explorer.exe <url>` werkt ook niet.
-
-1. Open Logitech G HUB, kies het toetsenbord en ga naar **Toewijzingen** (Assignments).
-2. Kies **Macro's** en klik op **Macro maken**. Naam: `Monitor-wissel HP`. Kies het type **Geen herhaling**.
-3. Klik op **Start nu**, kies **Toepassing starten** (Launch Application) en dan **Nieuwe toepassing** / bewerken. Vul in:
-   - Naam: `wscript`
-   - Bestandspad: `C:\Windows\System32\wscript.exe`
-   - Argumenten: `C:\Users\Sander\projects\monitor-wissel\sneltoetsen\wissel-hp.js` (één argument, geen spaties)
-4. Sla de macro op en sleep hem op **G1**.
-5. Herhaal voor `Monitor-wissel Samsung` met het argument `C:\Users\Sander\projects\monitor-wissel\sneltoetsen\wissel-samsung.js`, en sleep die op **G2**.
-6. Let op: G HUB-toewijzingen horen bij een profiel. Zet ze in het standaardprofiel (of het profiel dat je normaal gebruikt).
-
-Testen: druk op G1; de HP wisselt en de Stream Deck-knop kleurt mee. Er verschijnt geen venster. Verplaats je de repo, pas dan het pad in de macro's aan.
-
-Achtergrond: het script roept `WScript.Shell.Run` aan met de deeplink; Windows geeft die aan de geregistreerde handler (Stream Deck), zoals bij dubbelklikken op een internetsnelkoppeling. Hetzelfde kun je vanuit een opdrachtprompt doen met `rundll32 url.dll,FileProtocolHandler <url>` of `start <url>`.
-
-## Variant B: AutoHotkey 2.0
-
-### B1. G HUB controleren
-
-1. Open Logitech G HUB en kies het toetsenbord.
-2. Ga naar **Toewijzingen** (Assignments) en klik op G1.
-3. Controleer dat G1 de toets **F21** stuurt en G2 de toets **F22** (onder "Toetsenbord"). Staat er iets anders, sleep dan F21 en F22 er opnieuw op.
-4. Let op: G HUB-toewijzingen horen bij een profiel.
-
-### B2. Het script starten
+`monitor-wissel.ahk` koppelt F21 en F22 aan de deeplinks van `hp` en `samsung`. G HUB moet G1/G2 dan op F21/F22 zetten, net als bij variant A, maar de knoppen krijgen dan géén Sneltoets (toets).
 
 AutoHotkey 2.0 staat in `C:\Program Files\AutoHotkey\v2\`. Dubbelklik op `monitor-wissel.ahk`; er verschijnt een groen H-icoon in het systeemvak. Opnieuw dubbelklikken vervangt de lopende versie (`#SingleInstance Force`). Stoppen: rechtsklik op het H-icoon en kies **Exit**.
 
-### B3. Automatisch starten bij aanmelden
+Automatisch starten bij aanmelden:
 
 1. Druk op Win+R, typ `shell:startup` en druk op Enter.
 2. Rechtsklik in die map, kies **Nieuw > Snelkoppeling** en wijs naar `C:\Users\Sander\projects\monitor-wissel\sneltoetsen\monitor-wissel.ahk`.
 
-Het script start dan bij elke aanmelding. Verplaats je de repo, pas dan de snelkoppeling aan.
+Verplaats je de repo, pas dan de snelkoppeling aan.
 
-## Testen zonder toetsenbord
+### Testen zonder toetsenbord
 
 Een deeplink kun je ook in een opdrachtprompt openen:
 
@@ -63,10 +54,4 @@ Een deeplink kun je ook in een opdrachtprompt openen:
 start streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp?streamdeck=hidden
 ```
 
-Of precies zoals variant A het doet:
-
-```
-rundll32 url.dll,FileProtocolHandler streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp?streamdeck=hidden
-```
-
-Let op: dit wisselt het scherm echt. Een onschuldige proef is een naam die niet bestaat, bijvoorbeeld `.../wissel/bestaatniet`; in het pluginlog (`nl.sander.monitor-wissel.sdPlugin/logs/`) verschijnt dan `sneltoets zonder knop: bestaatniet`.
+Let op: dit wisselt het scherm echt. Een onschuldige proef is een naam die niet bestaat, bijvoorbeeld `.../wissel/bestaatniet`; in het pluginlog verschijnt dan `sneltoets zonder knop: bestaatniet`.

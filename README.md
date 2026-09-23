@@ -26,7 +26,11 @@ De regel: staat het scherm op de thuisingang, dan naar de werkingang; in elk and
 
 ## Sneltoetsen (G-toetsen)
 
-Een knop kan ook van buiten Stream Deck wisselen, bijvoorbeeld met G1/G2 op het toetsenbord. Geef de knop in zijn instellingen een **Sneltoetsnaam** (bijv. `hp` of `samsung`; hoofdletters en spaties eromheen tellen niet). Elk programma dat deze deeplink opent, voert dan dezelfde Wissel uit als een druk op die knop, inclusief Geheugenstand en knopbeeld:
+Een knop kan ook van buiten Stream Deck wisselen, bijvoorbeeld met G1/G2 op het toetsenbord. Dat gaat op twee manieren; beide voeren dezelfde Wissel uit als een druk op die knop, inclusief Geheugenstand en knopbeeld, en alleen voor knoppen op de pagina die de Stream Deck nu toont.
+
+**Sneltoets (toets), aanbevolen.** G HUB: tab Toetsen, sleep F21 op G1 en F22 op G2; in de knopinstellingen Sneltoets (toets) F21 resp. F22 kiezen; klaar. De plugin luistert zelf naar F13 t/m F24 (ADR-0004); er is geen extra software nodig. Zolang geen enkele zichtbare knop een toets heeft, draait er ook geen luisteraar. Het log meldt `sneltoets-luisteraar gestart (toetsen: F21, F22)` en per druk `sneltoets F21: knop <id> gewisseld`. Zie [sneltoetsen/README.md](sneltoetsen/README.md).
+
+**Sneltoetsnaam (deeplink), voor andere programma's.** Geef de knop een **Sneltoetsnaam** (bijv. `hp` of `samsung`; hoofdletters en spaties eromheen tellen niet). Elk programma dat deze deeplink opent, laat die knop wisselen:
 
 ```
 streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?streamdeck=hidden
@@ -35,7 +39,8 @@ streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?str
 - `?streamdeck=hidden` houdt het Stream Deck-venster op de achtergrond (Stream Deck 7.0 of hoger); zonder die toevoeging springt het venster naar voren.
 - Alleen knoppen op de pagina die de Stream Deck nu toont, reageren. Geen knop met die naam: niets gebeurt en het log meldt `sneltoets zonder knop: <naam>`.
 - Proberen vanuit een opdrachtprompt: `start streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/hp` (wisselt het scherm echt; gebruik een niet-bestaande naam voor een droge proef).
-- G1/G2 koppelen: zie [sneltoetsen/README.md](sneltoetsen/README.md). Zonder extra software: een G HUB-macro "Toepassing starten" met `C:\Windows\System32\wscript.exe` en als enig argument `sneltoetsen\wissel-hp.js` of `wissel-samsung.js` (geen venster; G HUB geeft meerdere argumenten niet betrouwbaar door). Alternatief: AutoHotkey 2.0 met `sneltoetsen/monitor-wissel.ahk` (G HUB zet G1/G2 op F21/F22).
+- Voorbeeld: AutoHotkey 2.0 met `sneltoetsen/monitor-wissel.ahk`. Gebruik die niet tegelijk met de Sneltoets (toets) op dezelfde F-toets, anders wisselt het scherm twee keer.
+- Een G HUB-macro "Toepassing starten" (met rundll32 of wscript) werkt niet betrouwbaar; daarom bestaat de Sneltoets (toets).
 
 ## Ontwikkelen
 
@@ -44,7 +49,7 @@ streamdeck://plugins/message/nl.sander.monitor-wissel/wissel/<sneltoetsnaam>?str
 - `npm run restart` – bouwen en de plugin in Stream Deck herstarten.
 - `npm run validate` – manifest en map controleren.
 - `npm run pack` – `.streamDeckPlugin`-bestand maken.
-- Logs: `nl.sander.monitor-wissel.sdPlugin/logs/`. Het DDC-script los draaien: `powershell -ExecutionPolicy Bypass -File nl.sander.monitor-wissel.sdPlugin/ps/ddc.ps1 list`.
+- Logs: `nl.sander.monitor-wissel.sdPlugin/logs/`. Het DDC-script los draaien: `powershell -ExecutionPolicy Bypass -File nl.sander.monitor-wissel.sdPlugin/ps/ddc.ps1 list`. De toetsluisteraar los draaien (stopt als proces 1234 weg is; print `klaar` en daarna `proef` per druk op F21): `powershell -ExecutionPolicy Bypass -File nl.sander.monitor-wissel.sdPlugin/ps/sneltoets-luisteraar.ps1 1234 F21=proef`.
 
 ## Bekende eigenschappen van Sanders schermen
 
