@@ -159,6 +159,19 @@ describe("SneltoetsLuisteraar", () => {
     expect(logger.regels.join("\n")).toContain("overgeslagen");
   });
 
+  it("negeert een regel van een oud proces dat net vervangen is (race bij herstart)", async () => {
+    const { luisteraar, kinderen, drukken } = maak();
+    luisteraar.stel(new Map([["F21", "a"]]));
+    const eersteKind = kinderen[0];
+    // Andere toetsen: dit herstart (stop + start), maar het oude kind blijft als object bestaan
+    // en zijn stdout-listener is nooit losgekoppeld.
+    luisteraar.stel(new Map([["F22", "b"]]));
+    expect(kinderen).toHaveLength(2);
+    eersteKind.stdout.write("a\n");
+    await wacht();
+    expect(drukken).toEqual([]);
+  });
+
   it("zet stderr van het script in het log", async () => {
     const { luisteraar, kinderen, logger } = maak();
     luisteraar.stel(new Map([["F21", "ctx1"]]));

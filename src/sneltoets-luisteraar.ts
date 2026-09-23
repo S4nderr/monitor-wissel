@@ -120,6 +120,9 @@ export class SneltoetsLuisteraar {
     let buffer = "";
     kind.stdout?.setEncoding("utf8");
     kind.stdout?.on("data", (stuk: string | Buffer) => {
+      // Een vervangen (herstart) proces stuurt zijn oude listeners niet los; zonder deze wacht
+      // zou een regel van een al vervangen kind alsnog een knopdruk uitlokken.
+      if (this.kind !== kind) return;
       buffer += stuk.toString();
       // Een regel kan in stukken binnenkomen: alleen volledige regels verwerken, de rest bewaren.
       let einde: number;
@@ -140,6 +143,7 @@ export class SneltoetsLuisteraar {
     });
     kind.stderr?.setEncoding("utf8");
     kind.stderr?.on("data", (stuk: string | Buffer) => {
+      if (this.kind !== kind) return;
       const tekst = stuk.toString().trim();
       if (tekst) this.logger.warn(`sneltoets-luisteraar: ${tekst}`);
     });
